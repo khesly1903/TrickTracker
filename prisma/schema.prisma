@@ -1,0 +1,304 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StudentType {
+  CHILD
+  ADULT
+}
+
+enum Role {
+  ADMIN
+  OWNER
+  INSTRUCTOR
+  PARENT
+  STUDENT
+  VISITOR
+}
+
+enum ClassTypes {
+  PRIVATE
+  GROUP
+  MAKEUP
+  WORKSHOP
+  EVENT
+}
+
+enum ContactTypes {
+  PARENT
+  GUARDIAN
+  EMERGENCY
+}
+
+enum ProgramLevels {
+  BEGINNER
+  INTERMEDIATE
+  TODDLER
+  ALL_LEVELS
+}
+
+enum SkillType {
+  SKILL
+  TRICK
+}
+
+enum SkillStatus {
+  NOT_STARTED
+  LEARNING
+  WITH_HELP
+  MASTERED
+}
+
+enum Gender {
+  BOYS
+  GIRLS
+  ALL_GENDER
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum ScheduleType {
+  CLASS
+  HOLIDAY
+  CANCELLED
+  MAKEUP
+}
+
+enum Stage {
+  BEGINNER
+  LOREM1
+  INTERMEDIATE
+  LOREM2
+  ADVANCED
+}
+
+model User {
+  id           String @id @default(uuid())
+  email        String @unique
+  passwordHash String
+  roles        Role[]
+
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  refreshToken String?
+
+  studentProfile    Student?
+  contactProfile    Contact?
+  instructorProfile Instructor?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Student {
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name                 String
+  surname              String
+  type                 StudentType
+  dob                  DateTime
+  injuries             String[]
+  phoneNumber          String?
+  secondaryPhoneNumber String?
+  whatsappPhoneNumber  String?
+  school               String?
+  isActive             Boolean          @default(true)
+  studentContacts      StudentContact[]
+  studentPrograms      StudentProgram[]
+  studentSkills        StudentSkill[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Contact {
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name                 String
+  surname              String
+  type                 ContactTypes     @default(PARENT)
+  phoneNumber          String
+  secondaryPhoneNumber String?
+  whatsappPhoneNumber  String
+  email                String?          @unique
+  isActive             Boolean          @default(true)
+  studentContacts      StudentContact[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Instructor {
+  id     String  @id @default(uuid())
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name                 String
+  surname              String
+  isActive             Boolean @default(true)
+  phoneNumber          String
+  secondaryPhoneNumber String?
+  whatsappPhoneNumber  String
+
+  mainPrograms   Program[] @relation("MainInstructor")
+  backupPrograms Program[] @relation("BackupInstructors")
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Class {
+  id       String     @id @default(uuid())
+  name     String
+  type     ClassTypes @default(GROUP)
+  programs Program[]
+  isActive Boolean    @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Program {
+  id                String            @id @default(uuid())
+  name              String
+  isActive          Boolean           @default(true)
+  price             Float
+  Stage             Stage[]
+  gender            Gender            @default(ALL_GENDER)
+  capcaity          Int
+  programSchedules  ProgramSchedule[]
+  programSkills     ProgramSkill[]
+  studentPrograms   StudentProgram[]
+  requiredEquipment String[]
+  instructor        Instructor?       @relation("MainInstructor", fields: [instructorId], references: [id])
+  instructorId      String?
+  backupInstructors Instructor[]      @relation("BackupInstructors")
+
+  minAge   Int
+  maxAge   Int
+  minLevel ProgramLevels
+  maxLevel ProgramLevels
+
+  inheritedClass Class  @relation(fields: [classId], references: [id])
+  classId        String
+
+  location   Location? @relation(fields: [locationId], references: [id])
+  locationId String?
+}
+
+model ProgramSchedule {
+  id        String       @id @default(uuid())
+  dayOfWeek DayOfWeek
+  startTime DateTime
+  duration  Int //minutes
+  endTime   DateTime?
+  type      ScheduleType
+
+  program   Program @relation(fields: [programId], references: [id])
+  programId String
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Skill {
+  id            String         @id @default(uuid())
+  name          String
+  type          SkillType
+  programSkills ProgramSkill[]
+  studentSkills StudentSkill[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model StudentSkill {
+  id         String      @id @default(uuid())
+  student    Student     @relation(fields: [studentId], references: [id])
+  studentId  String
+  skill      Skill       @relation(fields: [skillId], references: [id])
+  skillId    String
+  status     SkillStatus @default(NOT_STARTED)
+  achievedAt DateTime?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@unique([studentId, skillId])
+}
+
+model Attendance {
+  id       String  @id @default(uuid())
+  attended Boolean
+  note     String?
+
+  studentProgram   StudentProgram @relation(fields: [studentProgramId], references: [id])
+  studentProgramId String
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model Location {
+  id       String    @id @default(uuid())
+  name     String
+  address  String
+  programs Program[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
+model StudentProgram {
+  id        String  @id @default(uuid())
+  student   Student @relation(fields: [studentId], references: [id])
+  program   Program @relation(fields: [programId], references: [id])
+  isActive  Boolean @default(true)
+  studentId String
+  programId String
+
+  attendances Attendance[]
+
+  @@unique([studentId, programId])
+}
+
+model StudentContact {
+  student   Student @relation(fields: [studentId], references: [id])
+  contact   Contact @relation(fields: [contactId], references: [id])
+  studentId String
+  contactId String
+
+  @@id([studentId, contactId])
+}
+
+model ProgramSkill {
+  program   Program @relation(fields: [programId], references: [id])
+  skill     Skill   @relation(fields: [skillId], references: [id])
+  programId String
+  skillId   String
+  stage     Stage
+
+  @@id([programId, skillId])
+}
