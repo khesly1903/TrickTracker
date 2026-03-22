@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Program" ALTER COLUMN "endDate" DROP DEFAULT,
+ALTER COLUMN "startDate" DROP DEFAULT;

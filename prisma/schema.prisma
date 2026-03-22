@@ -19,6 +19,7 @@ enum StudentType {
 
 enum Role {
   ADMIN
+  MANAGER
   OWNER
   INSTRUCTOR
   PARENT
@@ -84,9 +85,7 @@ enum ScheduleType {
 
 enum Stage {
   BEGINNER
-  LOREM1
   INTERMEDIATE
-  LOREM2
   ADVANCED
 }
 
@@ -125,7 +124,6 @@ model Student {
   isActive             Boolean          @default(true)
   studentContacts      StudentContact[]
   studentPrograms      StudentProgram[]
-  studentSkills        StudentSkill[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
@@ -196,6 +194,10 @@ model Program {
   instructorId      String?
   backupInstructors Instructor[]      @relation("BackupInstructors")
 
+  startDate       DateTime         @db.Timestamptz
+  endDate         DateTime         @db.Timestamptz
+  programSessions ProgramSession[]
+
   minAge   Int
   maxAge   Int
   minLevel ProgramLevels
@@ -216,37 +218,28 @@ model ProgramSchedule {
   endTime   DateTime?
   type      ScheduleType
 
-  program   Program @relation(fields: [programId], references: [id])
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
   programId String
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 }
 
-model Skill {
-  id            String         @id @default(uuid())
-  name          String
-  type          SkillType
-  programSkills ProgramSkill[]
-  studentSkills StudentSkill[]
+model ProgramSession {
+  id          String       @id @default(uuid())
+  date        DateTime     @db.Timestamptz
+  startTime   DateTime     @db.Timestamptz
+  endTime     DateTime     @db.Timestamptz
+  isCancelled Boolean      @default(false)
+  type        ScheduleType @default(CLASS)
+
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  programId String
+
+  attendances Attendance[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
-}
-
-model StudentSkill {
-  id         String      @id @default(uuid())
-  student    Student     @relation(fields: [studentId], references: [id])
-  studentId  String
-  skill      Skill       @relation(fields: [skillId], references: [id])
-  skillId    String
-  status     SkillStatus @default(NOT_STARTED)
-  achievedAt DateTime?
-
-  createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime @updatedAt @db.Timestamptz()
-
-  @@unique([studentId, skillId])
 }
 
 model Attendance {
@@ -254,17 +247,23 @@ model Attendance {
   attended Boolean
   note     String?
 
-  studentProgram   StudentProgram @relation(fields: [studentProgramId], references: [id])
+  studentProgram   StudentProgram @relation(fields: [studentProgramId], references: [id], onDelete: Cascade)
   studentProgramId String
+
+  programSession   ProgramSession @relation(fields: [programSessionId], references: [id], onDelete: Cascade)
+  programSessionId String
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@unique([studentProgramId, programSessionId])
 }
 
 model Location {
   id       String    @id @default(uuid())
   name     String
   address  String
+  isActive Boolean   @default(true)
   programs Program[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
@@ -274,12 +273,13 @@ model Location {
 model StudentProgram {
   id        String  @id @default(uuid())
   student   Student @relation(fields: [studentId], references: [id])
-  program   Program @relation(fields: [programId], references: [id])
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
   isActive  Boolean @default(true)
   studentId String
   programId String
 
-  attendances Attendance[]
+  attendances          Attendance[]
+  studentProgramSkills StudentProgramSkill[]
 
   @@unique([studentId, programId])
 }
@@ -294,11 +294,36 @@ model StudentContact {
 }
 
 model ProgramSkill {
-  program   Program @relation(fields: [programId], references: [id])
-  skill     Skill   @relation(fields: [skillId], references: [id])
+  id        String  @id @default(uuid())
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
   programId String
-  skillId   String
-  stage     Stage
 
-  @@id([programId, skillId])
+  name  String
+  type  SkillType
+  stage Stage
+
+  studentProgramSkills StudentProgramSkill[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@unique([programId, name])
+}
+
+model StudentProgramSkill {
+  id String @id @default(uuid())
+
+  studentProgram   StudentProgram @relation(fields: [studentProgramId], references: [id], onDelete: Cascade)
+  studentProgramId String
+
+  programSkill   ProgramSkill @relation(fields: [programSkillId], references: [id], onDelete: Cascade)
+  programSkillId String
+
+  status     SkillStatus @default(NOT_STARTED)
+  achievedAt DateTime?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@unique([studentProgramId, programSkillId])
 }

@@ -6,9 +6,31 @@ import { UsersModule } from './users/users.module';
 import { StudentsModule } from './students/students.module';
 import { InstructorsModule } from './instructors/instructors.module';
 import { ContactsModule } from './contacts/contacts.module';
+import { ClassesModule } from './classes/classes.module';
+import { ProgramsModule } from './programs/programs.module';
+import { LocationsModule } from './locations/locations.module';
+import { ProgramSessionsModule } from './program-sessions/program-sessions.module';
+import { AttendancesModule } from './attendances/attendances.module';
+import { StudentProgramSkillsModule } from './student-program-skills/student-program-skills.module';
+import { StudentProgramsModule } from './student-programs/student-programs.module';
+import { ProgramSkillsModule } from './program-skills/program-skills.module';
 
 @Module({
-  imports: [DatabaseModule, UsersModule, StudentsModule, InstructorsModule, ContactsModule],
+  imports: [
+    DatabaseModule,
+    UsersModule,
+    StudentsModule,
+    InstructorsModule,
+    ContactsModule,
+    ClassesModule,
+    ProgramsModule,
+    LocationsModule,
+    ProgramSessionsModule,
+    AttendancesModule,
+    StudentProgramSkillsModule,
+    StudentProgramsModule,
+    ProgramSkillsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -25,7 +25,6 @@ export class StudentsService {
       include: {
         studentContacts: true,
         studentPrograms: true,
-        studentSkills: true,
       },
     });
   }
@@ -74,7 +73,6 @@ export class StudentsService {
       include: {
         studentContacts: true,
         studentPrograms: true,
-        studentSkills: true,
       },
     });
 

@@ -10,3 +10,5 @@ tsconfig.build.tsbuildinfo
 /generated/prisma
 AGENT.md
 NOTES.md
+DESIGN.md
+FRONTEND.md
