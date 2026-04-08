@@ -6,6 +6,7 @@ import {
 import { DatabaseService } from '../database/database.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class ContactsService {
@@ -18,37 +19,68 @@ export class ContactsService {
    * @throws ConflictException if user not found or contact already exists.
    */
   async create(createContactDto: CreateContactDto) {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: createContactDto.userId },
+    const { email, password, roles, userId, ...contactData } = createContactDto;
+
+    return this.prisma.$transaction(async (prisma) => {
+      let finalUserId = userId;
+
+      if (email) {
+        const existingUser = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (existingUser) {
+          throw new ConflictException('A user with this email already exists.');
+        }
+
+        const saltRounds = 10;
+        const finalPassword = password || 'TrickTrackerTemp123!';
+        const hashedPassword = await bcrypt.hash(finalPassword, saltRounds);
+
+        const newUser = await prisma.user.create({
+          data: {
+            email,
+            passwordHash: hashedPassword,
+            roles: roles || ['PARENT'],
+          },
+        });
+        finalUserId = newUser.id;
+      } else if (userId) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!existingUser) {
+          throw new ConflictException(
+            'A user with this ID does not exist in the system.',
+          );
+        }
+
+        const existingContact = await prisma.contact.findUnique({
+          where: { userId },
+        });
+
+        if (existingContact) {
+          throw new ConflictException(
+            'This user already has a contact profile.',
+          );
+        }
+      }
+
+      const contact = await prisma.contact.create({
+        data: {
+          ...contactData,
+          userId: finalUserId,
+        },
+        include: { user: true },
+      });
+
+      const { user, ...rest } = contact;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
     });
-
-    if (!existingUser) {
-      throw new ConflictException(
-        'A user with this ID does not exist in the system.',
-      );
-    }
-
-    const existingContact = await this.prisma.contact.findUnique({
-      where: { userId: createContactDto.userId },
-    });
-
-    if (existingContact) {
-      throw new ConflictException('This user already has a contact profile.');
-    }
-
-    const newContactProfile = await this.prisma.contact.create({
-      data: {
-        userId: createContactDto.userId,
-        name: createContactDto.name,
-        surname: createContactDto.surname,
-        type: createContactDto.type,
-        phoneNumber: createContactDto.phoneNumber,
-        secondaryPhoneNumber: createContactDto.secondaryPhoneNumber,
-        whatsappPhoneNumber: createContactDto.whatsappPhoneNumber,
-      },
-    });
-
-    return newContactProfile;
   }
 
   /**
@@ -56,7 +88,7 @@ export class ContactsService {
    * @returns A list of contacts with associated user and student connections.
    */
   async findAll() {
-    return this.prisma.contact.findMany({
+    const contacts = await this.prisma.contact.findMany({
       where: {
         isActive: true,
       },
@@ -64,6 +96,14 @@ export class ContactsService {
         user: true,
         studentContacts: true,
       },
+    });
+
+    return contacts.map((contact) => {
+      const { user, ...rest } = contact;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
     });
   }
 

@@ -6,18 +6,49 @@ import {
   IsString,
   IsArray,
 } from 'class-validator';
-import { StudentType } from '@prisma/client';
+import { StudentType, Role } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateStudentDto {
   // --- USER AUTHENTICATION FIELDS ---
   @ApiProperty({
-    description: 'It connects user and student',
+    description: 'Existing User ID to link the student profile to.',
     example: '29d7b3d1-0f41-4558-ae08-5bef4f45c054',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty({ message: 'User ID cannot be empty.' })
-  userId: string;
+  @IsOptional()
+  userId?: string;
+
+  @ApiProperty({
+    description: 'Email for a new user account.',
+    example: 'student@example.com',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @ApiProperty({
+    description: 'Password for a new user account.',
+    example: 'password123',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @ApiProperty({
+    description: 'Roles for the new user account.',
+    enum: Role,
+    isArray: true,
+    example: [Role.STUDENT],
+    required: false,
+  })
+  @IsArray()
+  @IsEnum(Role, { each: true })
+  @IsOptional()
+  roles?: Role[];
 
   // --- STUDENT PROFILE FIELDS ---
   @ApiProperty({

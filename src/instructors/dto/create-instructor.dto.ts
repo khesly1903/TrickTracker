@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
+import { Role } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateInstructorDto {
@@ -6,10 +13,41 @@ export class CreateInstructorDto {
   @ApiProperty({
     description: 'The unique ID of the associated user',
     example: '29d7b3d1-0f41-4558-ae08-5bef4f45c054',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty({ message: 'User ID cannot be empty.' })
-  userId: string;
+  @IsOptional()
+  userId?: string;
+
+  @ApiProperty({
+    description: 'Email for a new user account.',
+    example: 'instructor@example.com',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @ApiProperty({
+    description: 'Password for a new user account.',
+    example: 'password123',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @ApiProperty({
+    description: 'Roles for the new user account.',
+    enum: Role,
+    isArray: true,
+    example: [Role.INSTRUCTOR],
+    required: false,
+  })
+  @IsArray()
+  @IsEnum(Role, { each: true })
+  @IsOptional()
+  roles?: Role[];
 
   // --- INSTRUCTOR PROFILE FIELDS ---
   @ApiProperty({

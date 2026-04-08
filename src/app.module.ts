@@ -14,6 +14,7 @@ import { AttendancesModule } from './attendances/attendances.module';
 import { StudentProgramSkillsModule } from './student-program-skills/student-program-skills.module';
 import { StudentProgramsModule } from './student-programs/student-programs.module';
 import { ProgramSkillsModule } from './program-skills/program-skills.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ProgramSkillsModule } from './program-skills/program-skills.module';
     StudentProgramSkillsModule,
     StudentProgramsModule,
     ProgramSkillsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

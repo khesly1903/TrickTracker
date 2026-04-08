@@ -6,6 +6,8 @@ import {
 import { DatabaseService } from '../database/database.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
+import { FilterInstructorDto } from './dto/filter-instructor.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class InstructorsService {
@@ -18,38 +20,125 @@ export class InstructorsService {
    * @throws ConflictException if user ID not found or instructor already exists.
    */
   async create(createInstructorDto: CreateInstructorDto) {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: createInstructorDto.userId },
+    const { email, password, roles, userId, ...instructorData } =
+      createInstructorDto;
+
+    console.log('[DEBUG] Starting createInstructor process with data:', {
+      email,
+      userId,
+      instructorData,
     });
 
-    if (!existingUser) {
-      throw new ConflictException(
-        'A user with this ID does not exist in the system.',
-      );
+    try {
+      return await this.prisma.$transaction(async (prisma) => {
+      let finalUserId = userId;
+
+        if (email) {
+          console.log('[DEBUG] Email provided, creating/linking user...');
+          const existingUser = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          if (existingUser) {
+            console.log('[DEBUG] User already exists with email:', email);
+            throw new ConflictException(
+              'A user with this email already exists.',
+            );
+          }
+
+          const saltRounds = 10;
+          const finalPassword = password || 'TrickTrackerTemp123!';
+          console.log('[DEBUG] Hashing password...');
+          const hashedPassword = await bcrypt.hash(finalPassword, saltRounds);
+
+          console.log('[DEBUG] Creating user in Transaction...');
+          const newUser = await prisma.user.create({
+            data: {
+              email,
+              passwordHash: hashedPassword,
+              roles: roles || ['INSTRUCTOR'],
+            },
+          });
+          finalUserId = newUser.id;
+          console.log('[DEBUG] User created with ID:', finalUserId);
+      } else if (userId) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!existingUser) {
+          throw new ConflictException(
+            'A user with this ID does not exist in the system.',
+          );
+        }
+
+        const existingInstructor = await prisma.instructor.findUnique({
+          where: { userId },
+        });
+
+        if (existingInstructor) {
+          throw new ConflictException(
+            'This user already has an instructor profile.',
+          );
+        }
+      }
+
+        console.log('[DEBUG] Creating instructor profile...');
+        const instructor = await prisma.instructor.create({
+          data: {
+            ...instructorData,
+            userId: finalUserId,
+          },
+          include: { user: true },
+        });
+
+        console.log('[DEBUG] Instructor created successfully.');
+        const { user: linkedUser, ...rest } = instructor;
+        return {
+          ...rest,
+          email: linkedUser?.email || null,
+        };
+      });
+    } catch (error) {
+      console.error('[ERROR LOG] Exception caught in createInstructor:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Filters instructors by name or surname.
+   * @param filterDto Contains the fullname filter.
+   * @returns A list of filtered instructors.
+   */
+  async filter(filterDto: FilterInstructorDto) {
+    const { fullname } = filterDto;
+
+    const where: any = {
+      isActive: true, // only active instructors
+    };
+
+    if (fullname) {
+      // search in both name and surname
+      where.OR = [
+        { name: { contains: fullname, mode: 'insensitive' } },
+        { surname: { contains: fullname, mode: 'insensitive' } },
+      ];
     }
 
-    const existingInstructor = await this.prisma.instructor.findUnique({
-      where: { userId: createInstructorDto.userId },
-    });
-
-    if (existingInstructor) {
-      throw new ConflictException(
-        'This user already has an instructor profile.',
-      );
-    }
-
-    const newInstructorProfile = await this.prisma.instructor.create({
-      data: {
-        userId: createInstructorDto.userId,
-        name: createInstructorDto.name,
-        surname: createInstructorDto.surname,
-        phoneNumber: createInstructorDto.phoneNumber,
-        whatsappPhoneNumber: createInstructorDto.whatsappPhoneNumber,
-        secondaryPhoneNumber: createInstructorDto.secondaryPhoneNumber,
+    const instructors = await this.prisma.instructor.findMany({
+      where,
+      include: {
+        user: true,
       },
     });
 
-    return newInstructorProfile;
+    return instructors.map((instructor) => {
+      const { user, ...rest } = instructor;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
+    });
   }
 
   /**
@@ -57,10 +146,21 @@ export class InstructorsService {
    * @returns A list of active instructors.
    */
   async findAll() {
-    return this.prisma.instructor.findMany({
+    const instructors = await this.prisma.instructor.findMany({
       where: {
         isActive: true,
       },
+      include: {
+        user: true,
+      },
+    });
+
+    return instructors.map((instructor) => {
+      const { user, ...rest } = instructor;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
     });
   }
 

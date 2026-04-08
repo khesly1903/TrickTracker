@@ -18,14 +18,23 @@ export class StudentsService {
    * @returns A list of students.
    */
   async findAll() {
-    return this.prisma.student.findMany({
+    const students = await this.prisma.student.findMany({
       where: {
         isActive: true,
       },
       include: {
         studentContacts: true,
         studentPrograms: true,
+        user: true,
       },
+    });
+
+    return students.map((student) => {
+      const { user, ...rest } = student;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
     });
   }
 
@@ -49,13 +58,19 @@ export class StudentsService {
       ];
     }
 
-    return this.prisma.student.findMany({
+    const students = await this.prisma.student.findMany({
       where,
-      select: {
-        id: true,
-        name: true,
-        surname: true,
+      include: {
+        user: true,
       },
+    });
+
+    return students.map((student) => {
+      const { user, ...rest } = student;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
     });
   }
 
@@ -195,39 +210,71 @@ export class StudentsService {
    * @throws ConflictException if user ID is missing or student already exists.
    */
   async create(createStudentDto: CreateStudentDto) {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: createStudentDto.userId },
+    const { email, password, roles, userId, ...studentData } = createStudentDto;
+
+    return this.prisma.$transaction(async (prisma) => {
+      let finalUserId = userId;
+
+      // 1. If email is provided, create a new user
+      if (email) {
+        const existingUser = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (existingUser) {
+          throw new ConflictException('A user with this email already exists.');
+        }
+
+        const saltRounds = 10;
+        // Use provided password or a default temporary one if missing
+        const finalPassword = password || 'TrickTrackerTemp123!';
+        const hashedPassword = await bcrypt.hash(finalPassword, saltRounds);
+
+        const newUser = await prisma.user.create({
+          data: {
+            email,
+            passwordHash: hashedPassword,
+            roles: roles || ['STUDENT'],
+          },
+        });
+        finalUserId = newUser.id;
+      } else if (userId) {
+        // 2. If only userId is provided, check if user exists
+        const existingUser = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!existingUser) {
+          throw new ConflictException(
+            'A user with this ID does not exist in the system.',
+          );
+        }
+
+        const existingStudent = await prisma.student.findUnique({
+          where: { userId },
+        });
+
+        if (existingStudent) {
+          throw new ConflictException(
+            'This user already has a student profile.',
+          );
+        }
+      }
+
+      const student = await prisma.student.create({
+        data: {
+          ...studentData,
+          dob: new Date(studentData.dob),
+          userId: finalUserId,
+        },
+        include: { user: true },
+      });
+
+      const { user, ...rest } = student;
+      return {
+        ...rest,
+        email: user?.email || null,
+      };
     });
-
-    if (!existingUser) {
-      throw new ConflictException(
-        'A user with this ID does not exist in the system.',
-      );
-    }
-
-    const existingStudent = await this.prisma.student.findUnique({
-      where: { userId: createStudentDto.userId },
-    });
-
-    if (existingStudent) {
-      throw new ConflictException('This user already has a student profile.');
-    }
-
-    const newStudentProfile = await this.prisma.student.create({
-      data: {
-        userId: createStudentDto.userId,
-        name: createStudentDto.name,
-        surname: createStudentDto.surname,
-        type: createStudentDto.type,
-        dob: new Date(createStudentDto.dob),
-        injuries: createStudentDto.injuries || [],
-        phoneNumber: createStudentDto.phoneNumber,
-        secondaryPhoneNumber: createStudentDto.secondaryPhoneNumber,
-        whatsappPhoneNumber: createStudentDto.whatsappPhoneNumber,
-        school: createStudentDto.school,
-      },
-    });
-
-    return newStudentProfile;
   }
 }

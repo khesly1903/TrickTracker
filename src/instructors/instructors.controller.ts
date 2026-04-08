@@ -8,10 +8,12 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { InstructorsService } from './instructors.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
+import { FilterInstructorDto } from './dto/filter-instructor.dto';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -37,6 +39,15 @@ export class InstructorsController {
   @Post()
   async createInstructor(@Body() createInstructorDto: CreateInstructorDto) {
     return this.instructorsService.create(createInstructorDto);
+  }
+
+  @ApiOperation({ summary: 'Filter instructors by name or surname' })
+  @ApiOkResponse({
+    description: 'Return instructors matching the filter criteria.',
+  })
+  @Get('filter')
+  async filter(@Query() filterDto: FilterInstructorDto) {
+    return this.instructorsService.filter(filterDto);
   }
 
   @ApiOperation({ summary: 'Retrieve all active instructors' })
