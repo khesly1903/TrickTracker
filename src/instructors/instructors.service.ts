@@ -7,6 +7,7 @@ import { DatabaseService } from '../database/database.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
 import { FilterInstructorDto } from './dto/filter-instructor.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -142,26 +143,50 @@ export class InstructorsService {
   }
 
   /**
-   * Retrieves all active instructors in the system.
-   * @returns A list of active instructors.
+   * Retrieves active instructors with pagination.
+   * @param paginationQuery Page and limit for pagination.
+   * @returns Paginated instructors and metadata.
    */
-  async findAll() {
-    const instructors = await this.prisma.instructor.findMany({
-      where: {
-        isActive: true,
-      },
-      include: {
-        user: true,
-      },
-    });
+  async findAll(paginationQuery: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
 
-    return instructors.map((instructor) => {
-      const { user, ...rest } = instructor;
-      return {
-        ...rest,
-        email: user?.email || null,
-      };
-    });
+    const where: any = {
+      isActive: true,
+    };
+
+    const [total, instructors] = await Promise.all([
+      this.prisma.instructor.count({ where }),
+      this.prisma.instructor.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    ]);
+
+    const lastPage = Math.ceil(total / limit);
+
+    return {
+      data: instructors.map((instructor) => {
+        const { user, ...rest } = instructor;
+        return {
+          ...rest,
+          email: user?.email || null,
+        };
+      }),
+      meta: {
+        total,
+        page,
+        lastPage,
+        limit,
+      },
+    };
   }
 
   /**

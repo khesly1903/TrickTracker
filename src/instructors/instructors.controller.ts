@@ -14,6 +14,7 @@ import { InstructorsService } from './instructors.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
 import { FilterInstructorDto } from './dto/filter-instructor.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -50,13 +51,13 @@ export class InstructorsController {
     return this.instructorsService.filter(filterDto);
   }
 
-  @ApiOperation({ summary: 'Retrieve all active instructors' })
+  @ApiOperation({ summary: 'Retrieve all active instructors with pagination' })
   @ApiOkResponse({
-    description: 'Return a list of all active instructors.',
+    description: 'Return a paginated list of all active instructors.',
   })
   @Get()
-  async findAll() {
-    return this.instructorsService.findAll();
+  async findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.instructorsService.findAll(paginationQuery);
   }
 
   @ApiOperation({ summary: 'Get instructor by ID or User ID' })
