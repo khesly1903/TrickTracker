@@ -6,6 +6,9 @@ import {
 import { DatabaseService } from '../database/database.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { FilterContactDto } from './dto/filter-contact.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ContactTypes } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -67,13 +70,14 @@ export class ContactsService {
         }
       }
 
-      const contact = await prisma.contact.create({
+      const contact = (await prisma.contact.create({
         data: {
           ...contactData,
-          userId: finalUserId,
+          type: contactData.type || [ContactTypes.PARENT],
+          userId: finalUserId || null,
         },
         include: { user: true },
-      });
+      })) as any;
 
       const { user, ...rest } = contact;
       return {
@@ -84,17 +88,29 @@ export class ContactsService {
   }
 
   /**
-   * Retrieves all contacts in the system.
-   * @returns A list of contacts with associated user and student connections.
+   * Filters contacts by name or surname.
+   * @param filterDto Contains the fullname filter.
+   * @returns A list of filtered contacts.
    */
-  async findAll() {
+  async filter(filterDto: FilterContactDto) {
+    const { fullname } = filterDto;
+
+    const where: any = {
+      isActive: true, // only active contacts
+    };
+
+    if (fullname) {
+      // search in both name and surname
+      where.OR = [
+        { name: { contains: fullname, mode: 'insensitive' } },
+        { surname: { contains: fullname, mode: 'insensitive' } },
+      ];
+    }
+
     const contacts = await this.prisma.contact.findMany({
-      where: {
-        isActive: true,
-      },
+      where,
       include: {
         user: true,
-        studentContacts: true,
       },
     });
 
@@ -105,6 +121,54 @@ export class ContactsService {
         email: user?.email || null,
       };
     });
+  }
+
+  /**
+   * Retrieves active contacts with pagination.
+   * @param paginationQuery Page and limit for pagination.
+   * @returns Paginated contacts and metadata.
+   */
+  async findAll(paginationQuery: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      isActive: true,
+    };
+
+    const [total, contacts] = await Promise.all([
+      this.prisma.contact.count({ where }),
+      this.prisma.contact.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          user: true,
+          studentContacts: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    ]);
+
+    const lastPage = Math.ceil(total / limit);
+
+    return {
+      data: contacts.map((contact) => {
+        const { user, ...rest } = contact;
+        return {
+          ...rest,
+          email: user?.email || null,
+        };
+      }),
+      meta: {
+        total,
+        page,
+        lastPage,
+        limit,
+      },
+    };
   }
 
   /**
@@ -141,12 +205,20 @@ export class ContactsService {
   async update(id: string, updateContactDto: UpdateContactDto) {
     const existingContact = await this.findOne(id);
 
+    // If new types are provided, merge them with existing ones and remove duplicates
+    let finalTypes: ContactTypes[] = existingContact.type as ContactTypes[];
+    if (updateContactDto.type) {
+      finalTypes = Array.from(
+        new Set([...finalTypes, ...updateContactDto.type]),
+      ) as ContactTypes[];
+    }
+
     return this.prisma.contact.update({
       where: { id: existingContact.id },
       data: {
         name: updateContactDto.name,
         surname: updateContactDto.surname,
-        type: updateContactDto.type,
+        type: finalTypes,
         phoneNumber: updateContactDto.phoneNumber,
         secondaryPhoneNumber: updateContactDto.secondaryPhoneNumber,
         whatsappPhoneNumber: updateContactDto.whatsappPhoneNumber,

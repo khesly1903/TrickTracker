@@ -5,9 +5,30 @@ import {
   IsOptional,
   IsString,
   IsArray,
+  ValidateNested,
 } from 'class-validator';
-import { StudentType, Role } from '@prisma/client';
+import { StudentType, Role, ContactTypes } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+
+export class LinkContactDto {
+  @ApiProperty({
+    description: 'The unique ID of the contact.',
+    example: 'c8a1b2c3-d4e5-4f6g-h7i8-j9k0l1m2n3o4',
+  })
+  @IsString()
+  @IsNotEmpty()
+  contactId: string;
+
+  @ApiProperty({
+    description: 'The relation/role of this contact for this student.',
+    enum: ContactTypes,
+    example: ContactTypes.PARENT,
+  })
+  @IsEnum(ContactTypes)
+  @IsOptional()
+  relation?: ContactTypes = ContactTypes.PARENT;
+}
 
 export class CreateStudentDto {
   // --- USER AUTHENTICATION FIELDS ---
@@ -118,4 +139,16 @@ export class CreateStudentDto {
   @IsString()
   @IsOptional()
   school?: string;
+
+  @ApiProperty({
+    description:
+      'Array of Contacts to link to this student with their specific relations.',
+    type: [LinkContactDto],
+    required: false,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LinkContactDto)
+  @IsOptional()
+  contacts?: LinkContactDto[];
 }

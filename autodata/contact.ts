@@ -30,7 +30,7 @@ async function main() {
         userId: USER_IDS[i],
         name: `ContactName_${i + 1}`,
         surname: `ContactSurname_${i + 1}`,
-        type: ContactTypes.PARENT,
+        type: [ContactTypes.PARENT],
         phoneNumber: `+90555111111${i}`,
         whatsappPhoneNumber: `+90555111111${i}`,
         email: `contact${Date.now()}_${i}@example.com`,

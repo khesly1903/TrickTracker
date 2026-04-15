@@ -7,6 +7,8 @@ import { DatabaseService } from '../database/database.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { FilterStudentDto } from './dto/filter-student.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ContactTypes } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -14,28 +16,52 @@ export class StudentsService {
   constructor(private readonly prisma: DatabaseService) {}
 
   /**
-   * Retrieves all active students with their associated contacts, programs, and skills.
-   * @returns A list of students.
+   * Retrieves active students with pagination.
+   * @param paginationQuery Page and limit for pagination.
+   * @returns Paginated students and metadata.
    */
-  async findAll() {
-    const students = await this.prisma.student.findMany({
-      where: {
-        isActive: true,
-      },
-      include: {
-        studentContacts: true,
-        studentPrograms: true,
-        user: true,
-      },
-    });
+  async findAll(paginationQuery: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
 
-    return students.map((student) => {
-      const { user, ...rest } = student;
-      return {
-        ...rest,
-        email: user?.email || null,
-      };
-    });
+    const where: any = {
+      isActive: true,
+    };
+
+    const [total, students] = await Promise.all([
+      this.prisma.student.count({ where }),
+      this.prisma.student.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          studentContacts: true,
+          studentPrograms: true,
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+    ]);
+
+    const lastPage = Math.ceil(total / limit);
+
+    return {
+      data: students.map((student) => {
+        const { user, ...rest } = student;
+        return {
+          ...rest,
+          email: user?.email || null,
+        };
+      }),
+      meta: {
+        total,
+        page,
+        lastPage,
+        limit,
+      },
+    };
   }
 
   /**
@@ -105,7 +131,11 @@ export class StudentsService {
    * @returns The created StudentContact record.
    * @throws NotFoundException if student or contact is not found.
    */
-  async addContactToStudent(studentId: string, contactId: string) {
+  async addContactToStudent(
+    studentId: string,
+    contactId: string,
+    relation: ContactTypes = ContactTypes.PARENT,
+  ) {
     const studentExists = await this.findOne(studentId);
     // findOne already throws if student doesn't exist
 
@@ -119,10 +149,20 @@ export class StudentsService {
       throw new NotFoundException('Contact not found.');
     }
 
-    return this.prisma.studentContact.create({
-      data: {
+    return this.prisma.studentContact.upsert({
+      where: {
+        studentId_contactId: {
+          studentId: studentExists.id,
+          contactId: contactExists.id,
+        },
+      },
+      update: {
+        relation: relation,
+      },
+      create: {
         studentId: studentExists.id,
         contactId: contactExists.id,
+        relation: relation,
       },
     });
   }
@@ -210,7 +250,8 @@ export class StudentsService {
    * @throws ConflictException if user ID is missing or student already exists.
    */
   async create(createStudentDto: CreateStudentDto) {
-    const { email, password, roles, userId, ...studentData } = createStudentDto;
+    const { email, password, roles, userId, contacts, ...studentData } =
+      createStudentDto;
 
     return this.prisma.$transaction(async (prisma) => {
       let finalUserId = userId;
@@ -270,7 +311,37 @@ export class StudentsService {
         include: { user: true },
       });
 
-      const { user, ...rest } = student;
+      // 3. Link contacts if provided
+      if (contacts && contacts.length > 0) {
+        for (const c of contacts) {
+          await prisma.studentContact.create({
+            data: {
+              studentId: student.id,
+              contactId: c.contactId,
+              relation: c.relation || ContactTypes.PARENT,
+            },
+          });
+        }
+      }
+
+      // Fetch the full student object with linked contacts to return
+      const finalStudent = await prisma.student.findUnique({
+        where: { id: student.id },
+        include: {
+          user: true,
+          studentContacts: {
+            include: {
+              contact: true,
+            },
+          },
+        },
+      });
+
+      if (!finalStudent) {
+        throw new NotFoundException('Failed to retrieve the created student.');
+      }
+
+      const { user, ...rest } = finalStudent;
       return {
         ...rest,
         email: user?.email || null,

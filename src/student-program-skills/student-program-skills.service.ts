@@ -13,9 +13,13 @@ export class StudentProgramSkillsService {
     const studentProgram = await this.prisma.studentProgram.findUnique({
       where: { id: studentProgramId },
       include: {
-        program: {
+        programLocation: {
           include: {
-            programSkills: true,
+            program: {
+              include: {
+                programSkills: true,
+              },
+            },
           },
         },
       },
@@ -25,7 +29,7 @@ export class StudentProgramSkillsService {
       throw new NotFoundException('Student enrollment not found.');
     }
 
-    const programSkills = studentProgram.program.programSkills;
+    const programSkills = studentProgram.programLocation.program.programSkills;
 
     if (programSkills.length === 0) {
       return {

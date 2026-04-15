@@ -31,7 +31,9 @@ export class ClassesService {
         isActive: true,
       },
       include: {
-        programs: true,
+        _count: {
+          select: { programs: true },
+        },
       },
     });
   }

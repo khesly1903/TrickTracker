@@ -11,10 +11,10 @@ export class CreateStudentProgramDto {
   studentId: string;
 
   @ApiProperty({
-    description: 'The Program ID to enroll the student in',
+    description: 'The Program Location ID to enroll the student in',
     example: 'ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f',
   })
   @IsString()
   @IsNotEmpty()
-  programId: string;
+  programLocationId: string;
 }

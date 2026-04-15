@@ -6,10 +6,13 @@ import {
   Param,
   Patch,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { ContactsService } from './contacts.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { FilterContactDto } from './dto/filter-contact.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -37,13 +40,24 @@ export class ContactsController {
     return this.contactsService.create(createContactDto);
   }
 
-  @ApiOperation({ summary: 'Retrieve all contacts' })
+  @ApiOperation({ summary: 'Filter contacts by name' })
   @ApiOkResponse({
-    description: 'Return a list of all contacts.',
+    description: 'Return contacts matching the filter criteria.',
+  })
+  @Get('filter')
+  async filter(@Query('fullname') fullname?: string) {
+    // Build DTO manually to pass only fullname to service
+    const filterDto = { fullname } as any;
+    return this.contactsService.filter(filterDto);
+  }
+
+  @ApiOperation({ summary: 'Retrieve all contacts with pagination' })
+  @ApiOkResponse({
+    description: 'Return a paginated list of all active contacts.',
   })
   @Get()
-  async findAll() {
-    return this.contactsService.findAll();
+  async findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.contactsService.findAll(paginationQuery);
   }
 
   @ApiOperation({ summary: 'Get contact by ID or User ID' })

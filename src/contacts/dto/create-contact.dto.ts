@@ -67,15 +67,18 @@ export class CreateContactDto {
   surname: string;
 
   @ApiProperty({
-    description: 'The relationship type of the contact',
+    description: 'The relationship types of the contact',
     enum: ContactTypes,
-    example: 'PARENT',
+    isArray: true,
+    example: [ContactTypes.PARENT],
   })
+  @IsArray()
   @IsEnum(ContactTypes, {
+    each: true,
     message: 'Invalid Contact Type selected. Must be PARENT, GUARDIAN etc.',
   })
-  @IsNotEmpty({ message: 'Contact Type is required.' })
-  type: ContactTypes;
+  @IsOptional()
+  type: ContactTypes[] = [ContactTypes.PARENT];
 
   @ApiProperty({
     description: 'Primary phone number',

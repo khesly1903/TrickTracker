@@ -23,9 +23,9 @@ export class StudentProgramsService {
   async enroll(createDto: CreateStudentProgramDto) {
     const existing = await this.prisma.studentProgram.findUnique({
       where: {
-        studentId_programId: {
+        studentId_programLocationId: {
           studentId: createDto.studentId,
-          programId: createDto.programId,
+          programLocationId: createDto.programLocationId,
         },
       },
     });
@@ -57,16 +57,21 @@ export class StudentProgramsService {
    * @param studentId Optional student filter.
    * @param programId Optional program filter.
    */
-  async findAll(studentId?: string, programId?: string) {
+  async findAll(studentId?: string, programLocationId?: string) {
     const where: any = { isActive: true };
     if (studentId) where.studentId = studentId;
-    if (programId) where.programId = programId;
+    if (programLocationId) where.programLocationId = programLocationId;
 
     return this.prisma.studentProgram.findMany({
       where,
       include: {
         student: { select: { id: true, name: true, surname: true } },
-        program: { select: { id: true, name: true } },
+        programLocation: {
+          include: {
+            program: { select: { id: true, name: true } },
+            location: true,
+          },
+        },
       },
     });
   }
@@ -80,7 +85,12 @@ export class StudentProgramsService {
       where: { id },
       include: {
         student: true,
-        program: true,
+        programLocation: {
+          include: {
+            program: true,
+            location: true,
+          },
+        },
         studentProgramSkills: {
           include: {
             programSkill: true,

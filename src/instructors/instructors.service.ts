@@ -32,7 +32,7 @@ export class InstructorsService {
 
     try {
       return await this.prisma.$transaction(async (prisma) => {
-      let finalUserId = userId;
+        let finalUserId = userId;
 
         if (email) {
           console.log('[DEBUG] Email provided, creating/linking user...');
@@ -62,27 +62,27 @@ export class InstructorsService {
           });
           finalUserId = newUser.id;
           console.log('[DEBUG] User created with ID:', finalUserId);
-      } else if (userId) {
-        const existingUser = await prisma.user.findUnique({
-          where: { id: userId },
-        });
+        } else if (userId) {
+          const existingUser = await prisma.user.findUnique({
+            where: { id: userId },
+          });
 
-        if (!existingUser) {
-          throw new ConflictException(
-            'A user with this ID does not exist in the system.',
-          );
+          if (!existingUser) {
+            throw new ConflictException(
+              'A user with this ID does not exist in the system.',
+            );
+          }
+
+          const existingInstructor = await prisma.instructor.findUnique({
+            where: { userId },
+          });
+
+          if (existingInstructor) {
+            throw new ConflictException(
+              'This user already has an instructor profile.',
+            );
+          }
         }
-
-        const existingInstructor = await prisma.instructor.findUnique({
-          where: { userId },
-        });
-
-        if (existingInstructor) {
-          throw new ConflictException(
-            'This user already has an instructor profile.',
-          );
-        }
-      }
 
         console.log('[DEBUG] Creating instructor profile...');
         const instructor = await prisma.instructor.create({
@@ -174,10 +174,10 @@ export class InstructorsService {
 
     return {
       data: instructors.map((instructor) => {
-        const { user, ...rest } = instructor;
+        const { user: linkedUser, ...rest } = instructor;
         return {
           ...rest,
-          email: user?.email || null,
+          email: linkedUser?.email || null,
         };
       }),
       meta: {

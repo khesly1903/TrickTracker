@@ -38,17 +38,11 @@ export class ProgramSessionsController {
     return this.programSessionsService.create(createProgramSessionDto);
   }
 
-  @ApiOperation({ summary: 'List all specific program sessions' })
-  @ApiOkResponse({ description: 'A list of distinct program sessions.' })
-  @ApiQuery({
-    name: 'programId',
-    required: false,
-    type: String,
-    description: 'Filter sessions by program ID',
-  })
+  @ApiOperation({ summary: 'List program sessions' })
+  @ApiOkResponse({ description: 'Return a list of program sessions.' })
   @Get()
-  async findAll(@Query('programId') programId?: string) {
-    return this.programSessionsService.findAll(programId);
+  async findAll(@Query('programLocationId') programLocationId?: string) {
+    return this.programSessionsService.findAll(programLocationId);
   }
 
   @ApiOperation({ summary: 'Delete multiple manually generated sessions' })

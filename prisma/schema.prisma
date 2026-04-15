@@ -136,7 +136,7 @@ model Contact {
 
   name                 String
   surname              String
-  type                 ContactTypes     @default(PARENT)
+  type                 ContactTypes[]
   phoneNumber          String
   secondaryPhoneNumber String?
   whatsappPhoneNumber  String
@@ -160,8 +160,8 @@ model Instructor {
   secondaryPhoneNumber String?
   whatsappPhoneNumber  String
 
-  mainPrograms   Program[] @relation("MainInstructor")
-  backupPrograms Program[] @relation("BackupInstructors")
+  mainPrograms   ProgramLocation[] @relation("MainInstructor")
+  backupPrograms ProgramLocation[] @relation("BackupInstructors")
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
@@ -180,23 +180,17 @@ model Class {
 
 model Program {
   id                String            @id @default(uuid())
+  
   name              String
   isActive          Boolean           @default(true)
-  price             Float
   Stage             Stage[]
   gender            Gender            @default(ALL_GENDER)
-  capcaity          Int
-  programSchedules  ProgramSchedule[]
-  programSkills     ProgramSkill[]
-  studentPrograms   StudentProgram[]
   requiredEquipment String[]
-  instructor        Instructor?       @relation("MainInstructor", fields: [instructorId], references: [id])
-  instructorId      String?
-  backupInstructors Instructor[]      @relation("BackupInstructors")
 
+  programSkills     ProgramSkill[]
+  
   startDate       DateTime         @db.Timestamptz
   endDate         DateTime         @db.Timestamptz
-  programSessions ProgramSession[]
 
   minAge   Int
   maxAge   Int
@@ -206,20 +200,40 @@ model Program {
   inheritedClass Class  @relation(fields: [classId], references: [id])
   classId        String
 
-  location   Location? @relation(fields: [locationId], references: [id])
-  locationId String?
+  programLocations ProgramLocation[]
+}
+
+model ProgramLocation {
+  id        String   @id @default(uuid())
+  programId String
+  locationId String
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  location  Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  price             Float
+  capacity          Int
+  
+  instructor        Instructor?       @relation("MainInstructor", fields: [instructorId], references: [id])
+  instructorId      String?
+  backupInstructors Instructor[]      @relation("BackupInstructors")
+  
+  studentPrograms   StudentProgram[]
+  schedules ProgramSchedule[]
+  sessions  ProgramSession[]
+
+  @@unique([programId, locationId])
 }
 
 model ProgramSchedule {
   id        String       @id @default(uuid())
   dayOfWeek DayOfWeek
   startTime DateTime
-  duration  Int //minutes
   endTime   DateTime?
+  duration  Int //minutes
   type      ScheduleType
 
-  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  programId String
+  programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
+  programLocationId String
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
@@ -233,8 +247,8 @@ model ProgramSession {
   isCancelled Boolean      @default(false)
   type        ScheduleType @default(CLASS)
 
-  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  programId String
+  programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
+  programLocationId String
 
   attendances Attendance[]
 
@@ -264,7 +278,7 @@ model Location {
   name     String
   address  String
   isActive Boolean   @default(true)
-  programs Program[]
+  programLocations ProgramLocation[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
@@ -273,15 +287,15 @@ model Location {
 model StudentProgram {
   id        String  @id @default(uuid())
   student   Student @relation(fields: [studentId], references: [id])
-  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
   isActive  Boolean @default(true)
   studentId String
-  programId String
+  programLocationId String
 
   attendances          Attendance[]
   studentProgramSkills StudentProgramSkill[]
 
-  @@unique([studentId, programId])
+  @@unique([studentId, programLocationId])
 }
 
 model StudentContact {
@@ -289,6 +303,7 @@ model StudentContact {
   contact   Contact @relation(fields: [contactId], references: [id])
   studentId String
   contactId String
+  relation  ContactTypes @default(PARENT)
 
   @@id([studentId, contactId])
 }

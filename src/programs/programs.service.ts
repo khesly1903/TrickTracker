@@ -8,93 +8,108 @@ export class ProgramsService {
   constructor(private readonly prisma: DatabaseService) {}
 
   /**
-   * Creates a new educational program and generates future sessions based on schedules.
-   * @param createProgramDto Data to create a program, including weekly schedules.
+   * Creates a new educational program and generates future sessions based on schedules for each location.
+   * @param createProgramDto Data to create a program, including multi-location configurations.
    * @returns The created program record.
    */
   async create(createProgramDto: CreateProgramDto) {
-    const { schedules, ...programData } = createProgramDto;
+    const { locations, ...programData } = createProgramDto;
 
     return this.prisma.$transaction(async (prisma) => {
       const program = await prisma.program.create({
         data: {
           ...programData,
-          programSchedules: schedules?.length
-            ? { create: schedules }
-            : undefined,
         },
       });
 
-      if (schedules && schedules.length > 0) {
-        const start = new Date(programData.startDate);
-        const end = new Date(programData.endDate);
-        const sessionPayloads: any[] = [];
+      const dayMap: Record<string, number> = {
+        SUNDAY: 0,
+        MONDAY: 1,
+        TUESDAY: 2,
+        WEDNESDAY: 3,
+        THURSDAY: 4,
+        FRIDAY: 5,
+        SATURDAY: 6,
+      };
 
-        const dayMap: Record<string, number> = {
-          SUNDAY: 0,
-          MONDAY: 1,
-          TUESDAY: 2,
-          WEDNESDAY: 3,
-          THURSDAY: 4,
-          FRIDAY: 5,
-          SATURDAY: 6,
-        };
+      for (const locConfig of locations) {
+        const { schedules, backupInstructorIds, ...locationData } = locConfig;
 
-        for (
-          let dt = new Date(start);
-          dt <= end;
-          dt.setDate(dt.getDate() + 1)
-        ) {
-          const currentDayOfWeekNum = dt.getDay();
+        const programLocation = await prisma.programLocation.create({
+          data: {
+            programId: program.id,
+            locationId: locationData.locationId,
+            price: locationData.price,
+            capacity: locationData.capacity,
+            instructorId: locationData.instructorId,
+            backupInstructors: backupInstructorIds?.length
+              ? { connect: backupInstructorIds.map((id) => ({ id })) }
+              : undefined,
+            schedules: schedules?.length ? { create: schedules } : undefined,
+          },
+        });
 
-          for (const sch of schedules) {
-            if (dayMap[sch.dayOfWeek] === currentDayOfWeekNum) {
-              const schStartTime = new Date(sch.startTime);
+        if (schedules && schedules.length > 0) {
+          const start = new Date(programData.startDate);
+          const end = new Date(programData.endDate);
+          const sessionPayloads: any[] = [];
 
-              const sessionStart = new Date(dt);
-              sessionStart.setHours(
-                schStartTime.getHours(),
-                schStartTime.getMinutes(),
-                0,
-                0,
-              );
+          for (
+            let dt = new Date(start);
+            dt <= end;
+            dt.setDate(dt.getDate() + 1)
+          ) {
+            const currentDayOfWeekNum = dt.getDay();
 
-              let sessionEnd: Date;
-              if (sch.endTime) {
-                const schEndTime = new Date(sch.endTime);
-                sessionEnd = new Date(dt);
-                sessionEnd.setHours(
-                  schEndTime.getHours(),
-                  schEndTime.getMinutes(),
+            for (const sch of schedules) {
+              if (dayMap[sch.dayOfWeek] === currentDayOfWeekNum) {
+                const schStartTime = new Date(sch.startTime);
+
+                const sessionStart = new Date(dt);
+                sessionStart.setHours(
+                  schStartTime.getHours(),
+                  schStartTime.getMinutes(),
                   0,
                   0,
                 );
-              } else {
-                sessionEnd = new Date(
-                  sessionStart.getTime() + sch.duration * 60000,
-                );
+
+                let sessionEnd: Date;
+                if (sch.endTime) {
+                  const schEndTime = new Date(sch.endTime);
+                  sessionEnd = new Date(dt);
+                  sessionEnd.setHours(
+                    schEndTime.getHours(),
+                    schEndTime.getMinutes(),
+                    0,
+                    0,
+                  );
+                } else {
+                  sessionEnd = new Date(
+                    sessionStart.getTime() + sch.duration * 60000,
+                  );
+                }
+
+                sessionPayloads.push({
+                  programLocationId: programLocation.id,
+                  date: new Date(dt),
+                  startTime: sessionStart,
+                  endTime: sessionEnd,
+                  isCancelled: false,
+                  type: sch.type,
+                });
               }
-
-              sessionPayloads.push({
-                programId: program.id,
-                date: new Date(dt),
-                startTime: sessionStart,
-                endTime: sessionEnd,
-                isCancelled: false,
-                type: sch.type,
-              });
             }
           }
-        }
 
-        if (sessionPayloads.length > 0) {
-          await prisma.programSession.createMany({
-            data: sessionPayloads,
-          });
+          if (sessionPayloads.length > 0) {
+            await prisma.programSession.createMany({
+              data: sessionPayloads,
+            });
+          }
         }
       }
 
-      return program;
+      return this.findOne(program.id);
     });
   }
 
@@ -109,8 +124,16 @@ export class ProgramsService {
       },
       include: {
         inheritedClass: true,
-        location: true,
-        instructor: true,
+        programLocations: {
+          include: {
+            location: true,
+            instructor: true,
+            backupInstructors: true,
+            _count: {
+              select: { sessions: true },
+            },
+          },
+        },
       },
     });
   }
@@ -126,11 +149,16 @@ export class ProgramsService {
       where: { id },
       include: {
         inheritedClass: true,
-        location: true,
-        instructor: true,
-        programSchedules: true,
+        programLocations: {
+          include: {
+            location: true,
+            instructor: true,
+            backupInstructors: true,
+            schedules: true,
+            sessions: true,
+          },
+        },
         programSkills: true,
-        programSessions: true,
       },
     });
 

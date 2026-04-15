@@ -12,6 +12,8 @@ import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { FilterStudentDto } from './dto/filter-student.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ContactTypes } from '@prisma/client';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -48,13 +50,13 @@ export class StudentsController {
     return this.studentsService.filter(filterDto);
   }
 
-  @ApiOperation({ summary: 'Retrieve all students' })
+  @ApiOperation({ summary: 'Retrieve all students with pagination' })
   @ApiOkResponse({
-    description: 'Return a list of all active students.',
+    description: 'Return a paginated list of all active students.',
   })
   @Get()
-  findAll() {
-    return this.studentsService.findAll();
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.studentsService.findAll(paginationQuery);
   }
 
   @ApiOperation({ summary: 'Get student records by ID or User ID' })
@@ -105,7 +107,7 @@ export class StudentsController {
     return this.studentsService.remove(id);
   }
 
-  @ApiOperation({ summary: 'Assign a contact to a student' })
+  @ApiOperation({ summary: 'Assign a contact to a student with relation' })
   @ApiCreatedResponse({
     description: 'Contact assigned successfully.',
   })
@@ -116,7 +118,12 @@ export class StudentsController {
   addContact(
     @Param('studentId') studentId: string,
     @Param('contactId') contactId: string,
+    @Body('relation') relation: ContactTypes,
   ) {
-    return this.studentsService.addContactToStudent(studentId, contactId);
+    return this.studentsService.addContactToStudent(
+      studentId,
+      contactId,
+      relation,
+    );
   }
 }

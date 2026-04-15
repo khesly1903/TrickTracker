@@ -52,8 +52,9 @@ export class AttendancesService {
     const session = await this.prisma.programSession.findUnique({
       where: { id: sessionId },
       include: {
-        program: {
+        programLocation: {
           include: {
+            program: { select: { name: true } },
             studentPrograms: {
               where: { isActive: true },
               include: {
@@ -70,7 +71,7 @@ export class AttendancesService {
 
     if (!session) throw new NotFoundException('Session not found.');
 
-    return session.program.studentPrograms.map((sp) => ({
+    return session.programLocation.studentPrograms.map((sp) => ({
       studentProgramId: sp.id,
       studentName: `${sp.student.name} ${sp.student.surname}`,
       attended: sp.attendances[0]?.attended ?? false,

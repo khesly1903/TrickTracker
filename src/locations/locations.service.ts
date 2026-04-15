@@ -40,7 +40,11 @@ export class LocationsService {
     const location = await this.prisma.location.findUnique({
       where: { id },
       include: {
-        programs: true,
+        programLocations: {
+          include: {
+            program: true,
+          },
+        },
       },
     });
 

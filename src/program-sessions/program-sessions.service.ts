@@ -1,4 +1,4 @@
- import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateProgramSessionDto } from './dto/create-program-session.dto';
 import { UpdateProgramSessionDto } from './dto/update-program-session.dto';
@@ -19,13 +19,13 @@ export class ProgramSessionsService {
   }
 
   /**
-   * Retrieves specific sessions, optionally filtered by programId.
-   * @param programId Optional program ID to filter.
+   * Retrieves specific sessions, optionally filtered by programLocationId.
+   * @param programLocationId Optional Program Location ID to filter.
    * @returns A list of program sessions.
    */
-  async findAll(programId?: string) {
+  async findAll(programLocationId?: string) {
     return this.prisma.programSession.findMany({
-      where: programId ? { programId } : {},
+      where: programLocationId ? { programLocationId } : {},
       orderBy: { startTime: 'asc' },
     });
   }

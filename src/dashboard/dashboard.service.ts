@@ -60,8 +60,12 @@ export class DashboardService {
           isCancelled: false,
         },
         include: {
-          program: {
-            select: { name: true },
+          programLocation: {
+            include: {
+              program: {
+                select: { name: true },
+              },
+            },
           },
         },
         orderBy: { startTime: 'asc' },
@@ -73,13 +77,13 @@ export class DashboardService {
         select: {
           name: true,
           _count: {
-            select: { programs: { where: { isActive: true } } },
+            select: { programLocations: true },
           },
         },
       }),
 
       this.prisma.studentProgram.groupBy({
-        by: ['programId'],
+        by: ['programLocationId'],
         _count: { studentId: true },
       }),
     ]);
@@ -121,7 +125,7 @@ export class DashboardService {
       distributions: {
         byLocation: programsByLocation.map((l) => ({
           location: l.name,
-          count: l._count.programs,
+          count: l._count.programLocations,
         })),
       },
     };

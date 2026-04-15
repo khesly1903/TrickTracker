@@ -15,6 +15,62 @@ import { Gender, ProgramLevels } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateProgramScheduleDto } from './create-program-schedule.dto';
 
+export class CreateProgramLocationDto {
+  @ApiProperty({
+    description: 'The ID of the location',
+    example: 'ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f',
+  })
+  @IsString()
+  @IsNotEmpty()
+  locationId: string;
+
+  @ApiProperty({
+    description: 'Location-specific price',
+    example: 99.99,
+  })
+  @IsNumber()
+  @Min(0)
+  @IsNotEmpty()
+  price: number;
+
+  @ApiProperty({
+    description: 'Location-specific capacity',
+    example: 20,
+  })
+  @IsInt()
+  @Min(1)
+  @IsNotEmpty()
+  capacity: number;
+
+  @ApiPropertyOptional({
+    description: 'The ID of the main instructor for this location',
+    example: 'ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f',
+  })
+  @IsString()
+  @IsOptional()
+  instructorId?: string;
+
+  @ApiPropertyOptional({
+    description: 'The IDs of the backup instructors for this location',
+    type: [String],
+    example: ['ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f'],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  backupInstructorIds?: string[];
+
+  @ApiProperty({
+    description: 'Schedule templates for this location',
+    type: [CreateProgramScheduleDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProgramScheduleDto)
+  @IsOptional()
+  schedules?: CreateProgramScheduleDto[];
+}
+
 export class CreateProgramDto {
   @ApiProperty({
     description: 'Start date of the program (ISO format)',
@@ -33,30 +89,12 @@ export class CreateProgramDto {
   endDate: string | Date;
 
   @ApiProperty({
-    description: 'Schedule templates for the program',
-    type: [CreateProgramScheduleDto],
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateProgramScheduleDto)
-  @IsOptional()
-  schedules?: CreateProgramScheduleDto[];
-  @ApiProperty({
     description: 'The name of the program',
     example: 'Advanced Swimming',
   })
   @IsString()
   @IsNotEmpty()
   name: string;
-
-  @ApiProperty({
-    description: 'Program price',
-    example: 99.99,
-  })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  price: number;
 
   @ApiProperty({
     description: 'Gender target for the program',
@@ -66,15 +104,6 @@ export class CreateProgramDto {
   @IsEnum(Gender)
   @IsNotEmpty()
   gender: Gender;
-
-  @ApiProperty({
-    description: 'Maximum capacity of students',
-    example: 20,
-  })
-  @IsInt()
-  @Min(1)
-  @IsNotEmpty()
-  capcaity: number;
 
   @ApiProperty({
     description: 'List of required equipment',
@@ -129,19 +158,13 @@ export class CreateProgramDto {
   @IsNotEmpty()
   classId: string;
 
-  @ApiPropertyOptional({
-    description: 'The ID of the main instructor',
-    example: 'ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f',
+  @ApiProperty({
+    description: 'Location configurations for this program',
+    type: [CreateProgramLocationDto],
   })
-  @IsString()
-  @IsOptional()
-  instructorId?: string;
-
-  @ApiPropertyOptional({
-    description: 'The ID of the location',
-    example: 'ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f',
-  })
-  @IsString()
-  @IsOptional()
-  locationId?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProgramLocationDto)
+  @IsNotEmpty()
+  locations: CreateProgramLocationDto[];
 }
