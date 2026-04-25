@@ -36,6 +36,23 @@ export class StudentProgramsService {
       );
     }
 
+    const programLocation = await this.prisma.programLocation.findUnique({
+      where: { id: createDto.programLocationId },
+      include: {
+        _count: {
+          select: { studentPrograms: { where: { isActive: true } } },
+        },
+      },
+    });
+
+    if (!programLocation) {
+      throw new NotFoundException('Program location not found.');
+    }
+
+    if (programLocation._count.studentPrograms >= programLocation.capacity) {
+      throw new ConflictException('Program location is at full capacity.');
+    }
+
     const enrollment = await this.prisma.studentProgram.create({
       data: createDto,
     });

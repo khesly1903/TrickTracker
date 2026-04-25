@@ -33,7 +33,10 @@ export class StudentProgramsController {
     summary: 'Enroll a student in a program (auto-populates skills)',
   })
   @ApiCreatedResponse({ description: 'Student enrolled successfully.' })
-  @ApiConflictResponse({ description: 'Student is already enrolled.' })
+  @ApiNotFoundResponse({ description: 'Program location not found.' })
+  @ApiConflictResponse({
+    description: 'Student already enrolled, or program location at full capacity.',
+  })
   @Post()
   async enroll(@Body() createDto: CreateStudentProgramDto) {
     return this.studentProgramsService.enroll(createDto);

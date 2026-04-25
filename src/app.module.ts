@@ -15,6 +15,9 @@ import { StudentProgramSkillsModule } from './student-program-skills/student-pro
 import { StudentProgramsModule } from './student-programs/student-programs.module';
 import { ProgramSkillsModule } from './program-skills/program-skills.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ProgramLocationsModule } from './program-locations/program-locations.module';
+import { ProgramSchedulesModule } from './program-schedules/program-schedules.module';
+import { ProgramStagesModule } from './program-stages/program-stages.module';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
     StudentProgramsModule,
     ProgramSkillsModule,
     DashboardModule,
+    ProgramLocationsModule,
+    ProgramSchedulesModule,
+    ProgramStagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

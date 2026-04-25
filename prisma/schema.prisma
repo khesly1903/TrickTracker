@@ -41,13 +41,6 @@ enum ContactTypes {
   EMERGENCY
 }
 
-enum ProgramLevels {
-  BEGINNER
-  INTERMEDIATE
-  TODDLER
-  ALL_LEVELS
-}
-
 enum SkillType {
   SKILL
   TRICK
@@ -81,12 +74,6 @@ enum ScheduleType {
   HOLIDAY
   CANCELLED
   MAKEUP
-}
-
-enum Stage {
-  BEGINNER
-  INTERMEDIATE
-  ADVANCED
 }
 
 model User {
@@ -180,22 +167,20 @@ model Class {
 
 model Program {
   id                String            @id @default(uuid())
-  
+
   name              String
   isActive          Boolean           @default(true)
-  Stage             Stage[]
+  level             String?
   gender            Gender            @default(ALL_GENDER)
   requiredEquipment String[]
 
-  programSkills     ProgramSkill[]
-  
+  programStages     ProgramStage[]
+
   startDate       DateTime         @db.Timestamptz
   endDate         DateTime         @db.Timestamptz
 
   minAge   Int
   maxAge   Int
-  minLevel ProgramLevels
-  maxLevel ProgramLevels
 
   inheritedClass Class  @relation(fields: [classId], references: [id])
   classId        String
@@ -227,28 +212,32 @@ model ProgramLocation {
 model ProgramSchedule {
   id        String       @id @default(uuid())
   dayOfWeek DayOfWeek
-  startTime DateTime
-  endTime   DateTime?
+  startTime DateTime     @db.Timestamptz
+  endTime   DateTime?    @db.Timestamptz
   duration  Int //minutes
   type      ScheduleType
 
   programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
   programLocationId String
 
+  sessions ProgramSession[]
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 }
 
 model ProgramSession {
-  id          String       @id @default(uuid())
-  date        DateTime     @db.Timestamptz
-  startTime   DateTime     @db.Timestamptz
-  endTime     DateTime     @db.Timestamptz
-  isCancelled Boolean      @default(false)
-  type        ScheduleType @default(CLASS)
+  id        String       @id @default(uuid())
+  date      DateTime     @db.Timestamptz
+  startTime DateTime     @db.Timestamptz
+  endTime   DateTime     @db.Timestamptz
+  type      ScheduleType @default(CLASS)
 
   programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
   programLocationId String
+
+  schedule   ProgramSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  scheduleId String?
 
   attendances Attendance[]
 
@@ -308,21 +297,34 @@ model StudentContact {
   @@id([studentId, contactId])
 }
 
-model ProgramSkill {
-  id        String  @id @default(uuid())
-  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  programId String
+model ProgramStage {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  program     Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  programId   String
+  skills      ProgramSkill[]
 
-  name  String
-  type  SkillType
-  stage Stage
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@unique([programId, name])
+}
+
+model ProgramSkill {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  type        SkillType
+  stage       ProgramStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId     String
 
   studentProgramSkills StudentProgramSkill[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
-  @@unique([programId, name])
+  @@unique([stageId, name])
 }
 
 model StudentProgramSkill {

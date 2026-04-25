@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { StudentType } from '@prisma/client';
+import { ScheduleType, StudentType } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -57,7 +57,7 @@ export class DashboardService {
             gte: today,
             lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
           },
-          isCancelled: false,
+          type: { not: ScheduleType.CANCELLED },
         },
         include: {
           programLocation: {

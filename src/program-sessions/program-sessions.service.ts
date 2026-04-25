@@ -23,10 +23,35 @@ export class ProgramSessionsService {
    * @param programLocationId Optional Program Location ID to filter.
    * @returns A list of program sessions.
    */
-  async findAll(programLocationId?: string) {
+  async findAll(
+    programLocationId?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) {
+    const where: {
+      programLocationId?: string;
+      date?: { gte?: Date; lte?: Date };
+    } = {};
+
+    if (programLocationId) where.programLocationId = programLocationId;
+    if (dateFrom || dateTo) {
+      where.date = {};
+      if (dateFrom) where.date.gte = new Date(dateFrom);
+      if (dateTo) where.date.lte = new Date(dateTo);
+    }
+
     return this.prisma.programSession.findMany({
-      where: programLocationId ? { programLocationId } : {},
+      where,
       orderBy: { startTime: 'asc' },
+      include: {
+        programLocation: {
+          include: {
+            instructor: { select: { name: true, surname: true } },
+            program: { select: { id: true, name: true } },
+            location: { select: { name: true } },
+          },
+        },
+      },
     });
   }
 

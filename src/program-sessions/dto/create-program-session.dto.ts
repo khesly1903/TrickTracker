@@ -1,12 +1,11 @@
 import {
-  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { ScheduleType } from '@prisma/client';
 
 export class CreateProgramSessionDto {
@@ -35,16 +34,7 @@ export class CreateProgramSessionDto {
   endTime: string | Date;
 
   @ApiProperty({
-    description: 'Whether the session is cancelled',
-    example: false,
-    default: false,
-  })
-  @IsBoolean()
-  @IsOptional()
-  isCancelled?: boolean;
-
-  @ApiProperty({
-    description: 'The type of session, e.g., CLASS, HOLIDAY',
+    description: 'Type of session (use CANCELLED instead of a separate flag)',
     enum: ScheduleType,
     example: ScheduleType.CLASS,
   })

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateProgramDto } from './dto/create-program.dto';
 import { UpdateProgramDto } from './dto/update-program.dto';
@@ -7,212 +11,144 @@ import { UpdateProgramDto } from './dto/update-program.dto';
 export class ProgramsService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  /**
-   * Creates a new educational program and generates future sessions based on schedules for each location.
-   * @param createProgramDto Data to create a program, including multi-location configurations.
-   * @returns The created program record.
-   */
-  async create(createProgramDto: CreateProgramDto) {
-    const { locations, ...programData } = createProgramDto;
+  private validateDateRange(start: Date, end: Date): void {
+    const now = new Date();
+    const minAllowed = new Date(now);
+    minAllowed.setFullYear(minAllowed.getFullYear() - 1);
+    const maxAllowed = new Date(now);
+    maxAllowed.setFullYear(maxAllowed.getFullYear() + 2);
 
-    return this.prisma.$transaction(async (prisma) => {
-      const program = await prisma.program.create({
-        data: {
-          ...programData,
-        },
-      });
-
-      const dayMap: Record<string, number> = {
-        SUNDAY: 0,
-        MONDAY: 1,
-        TUESDAY: 2,
-        WEDNESDAY: 3,
-        THURSDAY: 4,
-        FRIDAY: 5,
-        SATURDAY: 6,
-      };
-
-      for (const locConfig of locations) {
-        const { schedules, backupInstructorIds, ...locationData } = locConfig;
-
-        const programLocation = await prisma.programLocation.create({
-          data: {
-            programId: program.id,
-            locationId: locationData.locationId,
-            price: locationData.price,
-            capacity: locationData.capacity,
-            instructorId: locationData.instructorId,
-            backupInstructors: backupInstructorIds?.length
-              ? { connect: backupInstructorIds.map((id) => ({ id })) }
-              : undefined,
-            schedules: schedules?.length ? { create: schedules } : undefined,
-          },
-        });
-
-        if (schedules && schedules.length > 0) {
-          const start = new Date(programData.startDate);
-          const end = new Date(programData.endDate);
-          const sessionPayloads: any[] = [];
-
-          for (
-            let dt = new Date(start);
-            dt <= end;
-            dt.setDate(dt.getDate() + 1)
-          ) {
-            const currentDayOfWeekNum = dt.getDay();
-
-            for (const sch of schedules) {
-              if (dayMap[sch.dayOfWeek] === currentDayOfWeekNum) {
-                const schStartTime = new Date(sch.startTime);
-
-                const sessionStart = new Date(dt);
-                sessionStart.setHours(
-                  schStartTime.getHours(),
-                  schStartTime.getMinutes(),
-                  0,
-                  0,
-                );
-
-                let sessionEnd: Date;
-                if (sch.endTime) {
-                  const schEndTime = new Date(sch.endTime);
-                  sessionEnd = new Date(dt);
-                  sessionEnd.setHours(
-                    schEndTime.getHours(),
-                    schEndTime.getMinutes(),
-                    0,
-                    0,
-                  );
-                } else {
-                  sessionEnd = new Date(
-                    sessionStart.getTime() + sch.duration * 60000,
-                  );
-                }
-
-                sessionPayloads.push({
-                  programLocationId: programLocation.id,
-                  date: new Date(dt),
-                  startTime: sessionStart,
-                  endTime: sessionEnd,
-                  isCancelled: false,
-                  type: sch.type,
-                });
-              }
-            }
-          }
-
-          if (sessionPayloads.length > 0) {
-            await prisma.programSession.createMany({
-              data: sessionPayloads,
-            });
-          }
-        }
-      }
-
-      return this.findOne(program.id);
-    });
+    if (start < minAllowed || start > maxAllowed) {
+      throw new BadRequestException(
+        'startDate must be within 1 year past and 2 years future.',
+      );
+    }
+    if (end < minAllowed || end > maxAllowed) {
+      throw new BadRequestException(
+        'endDate must be within 1 year past and 2 years future.',
+      );
+    }
+    if (start >= end) {
+      throw new BadRequestException('startDate must be before endDate.');
+    }
   }
 
-  /**
-   * Retrieves all active programs with related class and location.
-   * @returns A list of active programs.
-   */
+  async create(createProgramDto: CreateProgramDto) {
+    const start = createProgramDto.startDate;
+    const end = createProgramDto.endDate;
+
+    this.validateDateRange(start, end);
+
+    if (createProgramDto.minAge > createProgramDto.maxAge) {
+      throw new BadRequestException('minAge must be <= maxAge.');
+    }
+
+    const classExists = await this.prisma.class.findUnique({
+      where: { id: createProgramDto.classId },
+    });
+    if (!classExists) throw new NotFoundException('Class not found.');
+
+    const program = await this.prisma.program.create({
+      data: { ...createProgramDto },
+    });
+
+    return this.findOne(program.id);
+  }
+
   async findAll() {
     return this.prisma.program.findMany({
-      where: {
-        isActive: true,
-      },
+      where: { isActive: true },
       include: {
         inheritedClass: true,
-        programLocations: {
-          include: {
-            location: true,
-            instructor: true,
-            backupInstructors: true,
-            _count: {
-              select: { sessions: true },
-            },
-          },
+        programStages: {
+          orderBy: { createdAt: 'asc' },
+          include: { skills: { orderBy: { name: 'asc' } } },
         },
-      },
-    });
-  }
-
-  /**
-   * Finds a specific program by its unique ID.
-   * @param id The program ID.
-   * @returns The program record.
-   * @throws NotFoundException if program is not found.
-   */
-  async findOne(id: string) {
-    const program = await this.prisma.program.findUnique({
-      where: { id },
-      include: {
-        inheritedClass: true,
         programLocations: {
           include: {
             location: true,
             instructor: true,
             backupInstructors: true,
             schedules: true,
-            sessions: true,
+            _count: { select: { sessions: true } },
           },
         },
-        programSkills: true,
+      },
+    });
+  }
+
+  async findOne(id: string) {
+    const program = await this.prisma.program.findUnique({
+      where: { id },
+      include: {
+        inheritedClass: true,
+        programStages: {
+          orderBy: { createdAt: 'asc' },
+          include: { skills: { orderBy: { name: 'asc' } } },
+        },
+        programLocations: {
+          include: {
+            location: true,
+            instructor: true,
+            backupInstructors: true,
+            schedules: true,
+            _count: { select: { sessions: true } },
+          },
+        },
       },
     });
 
-    if (!program) {
-      throw new NotFoundException('Program not found.');
-    }
-
+    if (!program) throw new NotFoundException('Program not found.');
     return program;
   }
 
-  /**
-   * Updates an existing program record.
-   * @param id The program ID.
-   * @param updateProgramDto Data to update.
-   * @returns The updated program record.
-   * @throws NotFoundException if program is not found.
-   */
   async update(id: string, updateProgramDto: UpdateProgramDto) {
-    const existingProgram = await this.findOne(id);
+    const existing = await this.findOne(id);
+
+    if (updateProgramDto.classId) {
+      const classExists = await this.prisma.class.findUnique({
+        where: { id: updateProgramDto.classId },
+      });
+      if (!classExists) throw new NotFoundException('Class not found.');
+    }
+
+    const start = updateProgramDto.startDate ?? existing.startDate;
+    const end = updateProgramDto.endDate ?? existing.endDate;
+    if (updateProgramDto.startDate || updateProgramDto.endDate) {
+      this.validateDateRange(start, end);
+    }
+
+    if (
+      updateProgramDto.minAge !== undefined ||
+      updateProgramDto.maxAge !== undefined
+    ) {
+      const minAge = updateProgramDto.minAge ?? existing.minAge;
+      const maxAge = updateProgramDto.maxAge ?? existing.maxAge;
+      if (minAge > maxAge) {
+        throw new BadRequestException('minAge must be <= maxAge.');
+      }
+    }
 
     return this.prisma.program.update({
-      where: { id: existingProgram.id },
+      where: { id: existing.id },
       data: updateProgramDto,
     });
   }
 
-  /**
-   * Soft-deletes a program by setting isActive to false.
-   * @param id The program ID.
-   * @returns The updated program record.
-   * @throws NotFoundException if program is not found.
-   */
   async remove(id: string) {
-    const existingProgram = await this.findOne(id);
+    const existing = await this.findOne(id);
 
     return this.prisma.program.update({
-      where: { id: existingProgram.id },
-      data: {
-        isActive: false,
-      },
+      where: { id: existing.id },
+      data: { isActive: false },
     });
   }
 
-  /**
-   * Permanently deletes a program record from the database.
-   * @param id The program ID.
-   * @returns The deleted program record.
-   * @throws NotFoundException if program is not found.
-   */
   async hardRemove(id: string) {
-    const existingProgram = await this.findOne(id);
+    const existing = await this.findOne(id);
 
     return this.prisma.program.delete({
-      where: { id: existingProgram.id },
+      where: { id: existing.id },
     });
   }
 }

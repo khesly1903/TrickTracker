@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsArray,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { StudentType, Role, ContactTypes } from '@prisma/client';
@@ -24,6 +25,76 @@ export class LinkContactDto {
     description: 'The relation/role of this contact for this student.',
     enum: ContactTypes,
     example: ContactTypes.PARENT,
+  })
+  @IsEnum(ContactTypes)
+  @IsOptional()
+  relation?: ContactTypes = ContactTypes.PARENT;
+}
+
+export class InlineCreateContactDto {
+  @ApiProperty({ example: 'John', description: 'First name of the contact.' })
+  @IsString()
+  @IsNotEmpty({ message: 'Contact name cannot be empty.' })
+  name: string;
+
+  @ApiProperty({ example: 'Doe', description: 'Last name of the contact.' })
+  @IsString()
+  @IsNotEmpty({ message: 'Contact surname cannot be empty.' })
+  surname: string;
+
+  @ApiProperty({
+    example: '+20 120 574 45 45',
+    description: 'Primary phone number. Required when creating a new contact.',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string;
+
+  @ApiProperty({
+    example: '+20 120 574 45 45',
+    description:
+      'WhatsApp phone number. Required when creating a new contact.',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  whatsappPhoneNumber?: string;
+
+  @ApiProperty({
+    example: '+20 120 574 45 46',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  secondaryPhoneNumber?: string;
+
+  @ApiProperty({
+    example: 'parent@example.com',
+    description:
+      'Email used to check for an existing contact. If found, the existing contact is linked instead of creating a new one.',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @ApiProperty({
+    enum: ContactTypes,
+    isArray: true,
+    example: [ContactTypes.PARENT],
+    required: false,
+  })
+  @IsArray()
+  @IsEnum(ContactTypes, { each: true })
+  @IsOptional()
+  type?: ContactTypes[];
+
+  @ApiProperty({
+    description: 'Relation of this contact to the student.',
+    enum: ContactTypes,
+    example: ContactTypes.PARENT,
+    required: false,
   })
   @IsEnum(ContactTypes)
   @IsOptional()
@@ -151,4 +222,27 @@ export class CreateStudentDto {
   @Type(() => LinkContactDto)
   @IsOptional()
   contacts?: LinkContactDto[];
+
+  @ApiProperty({
+    description:
+      'Array of existing contact UUIDs to link to this student (relation defaults to PARENT).',
+    example: ['c8a1b2c3-d4e5-4f6g-h7i8-j9k0l1m2n3o4'],
+    required: false,
+  })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  contactIds?: string[];
+
+  @ApiProperty({
+    description:
+      'Array of new contacts to create and link in one request. If email is provided and a contact with that email already exists, the existing contact is linked instead.',
+    type: [InlineCreateContactDto],
+    required: false,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InlineCreateContactDto)
+  @IsOptional()
+  newContacts?: InlineCreateContactDto[];
 }

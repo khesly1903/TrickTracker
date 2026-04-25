@@ -17,7 +17,7 @@ export class StudentProgramSkillsService {
           include: {
             program: {
               include: {
-                programSkills: true,
+                programStages: { include: { skills: true } },
               },
             },
           },
@@ -29,7 +29,9 @@ export class StudentProgramSkillsService {
       throw new NotFoundException('Student enrollment not found.');
     }
 
-    const programSkills = studentProgram.programLocation.program.programSkills;
+    const programSkills = studentProgram.programLocation.program.programStages.flatMap(
+      (stage) => stage.skills,
+    );
 
     if (programSkills.length === 0) {
       return {

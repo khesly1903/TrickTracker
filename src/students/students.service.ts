@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CreateStudentDto } from './dto/create-student.dto';
+import {
+  CreateStudentDto,
+  InlineCreateContactDto,
+} from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { FilterStudentDto } from './dto/filter-student.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -14,6 +17,30 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class StudentsService {
   constructor(private readonly prisma: DatabaseService) {}
+
+  private async createInlineContact(
+    prisma: any,
+    nc: InlineCreateContactDto,
+  ): Promise<string> {
+    if (!nc.phoneNumber || !nc.whatsappPhoneNumber) {
+      throw new ConflictException(
+        `phoneNumber and whatsappPhoneNumber are required when creating a new contact (name: ${nc.name} ${nc.surname}).`,
+      );
+    }
+
+    const contact = await prisma.contact.create({
+      data: {
+        name: nc.name,
+        surname: nc.surname,
+        phoneNumber: nc.phoneNumber,
+        whatsappPhoneNumber: nc.whatsappPhoneNumber,
+        secondaryPhoneNumber: nc.secondaryPhoneNumber,
+        email: nc.email || null,
+        type: nc.type || [ContactTypes.PARENT],
+      },
+    });
+    return contact.id;
+  }
 
   /**
    * Retrieves active students with pagination.
@@ -250,8 +277,16 @@ export class StudentsService {
    * @throws ConflictException if user ID is missing or student already exists.
    */
   async create(createStudentDto: CreateStudentDto) {
-    const { email, password, roles, userId, contacts, ...studentData } =
-      createStudentDto;
+    const {
+      email,
+      password,
+      roles,
+      userId,
+      contacts,
+      contactIds,
+      newContacts,
+      ...studentData
+    } = createStudentDto;
 
     return this.prisma.$transaction(async (prisma) => {
       let finalUserId = userId;
@@ -311,7 +346,7 @@ export class StudentsService {
         include: { user: true },
       });
 
-      // 3. Link contacts if provided
+      // 3. Link existing contacts by full LinkContactDto (id + relation)
       if (contacts && contacts.length > 0) {
         for (const c of contacts) {
           await prisma.studentContact.create({
@@ -319,6 +354,65 @@ export class StudentsService {
               studentId: student.id,
               contactId: c.contactId,
               relation: c.relation || ContactTypes.PARENT,
+            },
+          });
+        }
+      }
+
+      // 3b. Link existing contacts by plain UUID array (relation defaults to PARENT)
+      if (contactIds && contactIds.length > 0) {
+        for (const contactId of contactIds) {
+          await prisma.studentContact.upsert({
+            where: {
+              studentId_contactId: { studentId: student.id, contactId },
+            },
+            update: {},
+            create: {
+              studentId: student.id,
+              contactId,
+              relation: ContactTypes.PARENT,
+            },
+          });
+        }
+      }
+
+      // 4. Create or link inline contacts
+      if (newContacts && newContacts.length > 0) {
+        for (const nc of newContacts) {
+          let contactId: string;
+
+          if (nc.email) {
+            const existing = await prisma.contact.findFirst({
+              where: {
+                isActive: true,
+                OR: [
+                  { email: nc.email },
+                  { user: { email: nc.email } },
+                ],
+              },
+            });
+
+            if (existing) {
+              contactId = existing.id;
+            } else {
+              contactId = await this.createInlineContact(prisma, nc);
+            }
+          } else {
+            contactId = await this.createInlineContact(prisma, nc);
+          }
+
+          await prisma.studentContact.upsert({
+            where: {
+              studentId_contactId: {
+                studentId: student.id,
+                contactId,
+              },
+            },
+            update: { relation: nc.relation || ContactTypes.PARENT },
+            create: {
+              studentId: student.id,
+              contactId,
+              relation: nc.relation || ContactTypes.PARENT,
             },
           });
         }

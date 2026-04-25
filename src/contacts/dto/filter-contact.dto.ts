@@ -10,4 +10,13 @@ export class FilterContactDto {
   @IsString()
   @IsOptional()
   fullname?: string;
+
+  @ApiProperty({
+    description: 'Filter contacts by email (checks contact email and linked user email)',
+    required: false,
+    example: 'parent@example.com',
+  })
+  @IsString()
+  @IsOptional()
+  email?: string;
 }

@@ -93,18 +93,30 @@ export class ContactsService {
    * @returns A list of filtered contacts.
    */
   async filter(filterDto: FilterContactDto) {
-    const { fullname } = filterDto;
+    const { fullname, email } = filterDto;
 
     const where: any = {
-      isActive: true, // only active contacts
+      isActive: true,
     };
 
+    const conditions: any[] = [];
+
     if (fullname) {
-      // search in both name and surname
-      where.OR = [
+      conditions.push(
         { name: { contains: fullname, mode: 'insensitive' } },
         { surname: { contains: fullname, mode: 'insensitive' } },
-      ];
+      );
+    }
+
+    if (email) {
+      conditions.push(
+        { email: { equals: email, mode: 'insensitive' } },
+        { user: { email: { equals: email, mode: 'insensitive' } } },
+      );
+    }
+
+    if (conditions.length > 0) {
+      where.OR = conditions;
     }
 
     const contacts = await this.prisma.contact.findMany({

@@ -40,9 +40,16 @@ export class ProgramSessionsController {
 
   @ApiOperation({ summary: 'List program sessions' })
   @ApiOkResponse({ description: 'Return a list of program sessions.' })
+  @ApiQuery({ name: 'programLocationId', required: false })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'ISO date string (inclusive)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'ISO date string (inclusive)' })
   @Get()
-  async findAll(@Query('programLocationId') programLocationId?: string) {
-    return this.programSessionsService.findAll(programLocationId);
+  async findAll(
+    @Query('programLocationId') programLocationId?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.programSessionsService.findAll(programLocationId, dateFrom, dateTo);
   }
 
   @ApiOperation({ summary: 'Delete multiple manually generated sessions' })
