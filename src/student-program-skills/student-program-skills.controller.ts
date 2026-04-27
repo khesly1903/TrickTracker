@@ -73,16 +73,16 @@ export class StudentProgramSkillsController {
   }
 
   @ApiOperation({
-    summary: 'Update skill status for a student (e.g., LEARNING → MASTERED)',
+    summary: 'Update skill status, note, or updatedBy for a student skill record',
   })
-  @ApiOkResponse({ description: 'Skill status updated successfully.' })
+  @ApiOkResponse({ description: 'Skill record updated successfully.' })
   @ApiNotFoundResponse({ description: 'Record not found.' })
   @Patch(':id')
-  async updateStatus(
+  async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateStudentProgramSkillDto,
   ) {
-    return this.studentProgramSkillsService.updateStatus(id, updateDto);
+    return this.studentProgramSkillsService.update(id, updateDto);
   }
 
   @ApiOperation({ summary: 'Remove a specific student program skill record' })

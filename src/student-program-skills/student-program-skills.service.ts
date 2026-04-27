@@ -58,16 +58,10 @@ export class StudentProgramSkillsService {
    * Lists all skills and their status for a student within a specific program.
    */
   async findAllByEnrollment(studentProgramId: string) {
-    const enrollment = await this.prisma.studentProgram.findUnique({
-      where: { id: studentProgramId },
-    });
-    if (!enrollment)
-      throw new NotFoundException('Student enrollment not found.');
-
     return this.prisma.studentProgramSkill.findMany({
       where: { studentProgramId },
       include: {
-        programSkill: true, // Now includes name, type, stage directly
+        programSkill: { include: { stage: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -80,10 +74,8 @@ export class StudentProgramSkillsService {
     const record = await this.prisma.studentProgramSkill.findUnique({
       where: { id },
       include: {
-        programSkill: true,
-        studentProgram: {
-          include: { student: true },
-        },
+        programSkill: { include: { stage: true } },
+        studentProgram: { include: { student: true } },
       },
     });
 
@@ -93,17 +85,19 @@ export class StudentProgramSkillsService {
   }
 
   /**
-   * Updates the skill status for a specific student-program-skill record.
+   * Updates status, note, and/or updatedBy for a student-program-skill record.
    */
-  async updateStatus(id: string, updateDto: UpdateStudentProgramSkillDto) {
+  async update(id: string, updateDto: UpdateStudentProgramSkillDto) {
     const existing = await this.findOne(id);
 
     return this.prisma.studentProgramSkill.update({
       where: { id: existing.id },
       data: {
-        ...updateDto,
-        achievedAt:
-          updateDto.status === 'MASTERED' ? new Date() : existing.achievedAt,
+        ...(updateDto.status !== undefined && { status: updateDto.status }),
+        ...(updateDto.note !== undefined && { note: updateDto.note }),
+        ...(updateDto.updatedById !== undefined && {
+          updatedById: updateDto.updatedById,
+        }),
       },
     });
   }

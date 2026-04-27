@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateStudentProgramDto } from './dto/create-student-program.dto';
@@ -36,9 +37,17 @@ export class StudentProgramsService {
       );
     }
 
+    const student = await this.prisma.student.findUnique({
+      where: { id: createDto.studentId },
+    });
+    if (!student || !student.isActive) {
+      throw new NotFoundException('Student not found or inactive.');
+    }
+
     const programLocation = await this.prisma.programLocation.findUnique({
       where: { id: createDto.programLocationId },
       include: {
+        program: true,
         _count: {
           select: { studentPrograms: { where: { isActive: true } } },
         },
@@ -47,6 +56,10 @@ export class StudentProgramsService {
 
     if (!programLocation) {
       throw new NotFoundException('Program location not found.');
+    }
+
+    if (programLocation.program.endDate < new Date()) {
+      throw new BadRequestException('This program has already ended.');
     }
 
     if (programLocation._count.studentPrograms >= programLocation.capacity) {
