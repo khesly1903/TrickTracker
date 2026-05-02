@@ -7,8 +7,10 @@ import {
   ApiOkResponse,
   ApiCreatedResponse,
 } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('attendances')
+@Public()
 @Controller('attendances')
 export class AttendancesController {
   constructor(private readonly attendancesService: AttendancesService) {}

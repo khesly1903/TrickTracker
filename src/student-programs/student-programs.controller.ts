@@ -21,8 +21,10 @@ import {
   ApiNoContentResponse,
   ApiQuery,
 } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('student-programs')
+@Public()
 @Controller('student-programs')
 export class StudentProgramsController {
   constructor(

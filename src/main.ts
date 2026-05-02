@@ -28,10 +28,13 @@ async function bootstrap() {
       .setTitle('TrickTracker API')
       .setDescription('The TrickTracker API description')
       .setVersion('1.0')
+      .addBearerAuth()
       .build();
 
     const documentFactory = () => SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, documentFactory);
+    SwaggerModule.setup('api/docs', app, documentFactory, {
+      swaggerOptions: { persistAuthorization: true },
+    });
   }
 
   await app.listen(process.env.PORT ?? 3000);

@@ -23,8 +23,10 @@ import {
 import { ProgramLocationsService } from './program-locations.service';
 import { CreateProgramLocationDto } from './dto/create-program-location.dto';
 import { UpdateProgramLocationDto } from './dto/update-program-location.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-locations')
+@Public()
 @Controller('program-locations')
 export class ProgramLocationsController {
   constructor(private readonly service: ProgramLocationsService) {}

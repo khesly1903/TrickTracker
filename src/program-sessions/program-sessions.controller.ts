@@ -23,8 +23,10 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-sessions')
+@Public()
 @Controller('program-sessions')
 export class ProgramSessionsController {
   constructor(

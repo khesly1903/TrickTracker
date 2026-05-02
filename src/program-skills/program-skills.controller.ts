@@ -21,8 +21,10 @@ import {
   ApiConflictResponse,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-skills')
+@Public()
 @Controller('program-skills')
 export class ProgramSkillsController {
   constructor(private readonly service: ProgramSkillsService) {}

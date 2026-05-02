@@ -21,8 +21,10 @@ import {
 import { ProgramStagesService } from './program-stages.service';
 import { CreateProgramStageDto } from './dto/create-program-stage.dto';
 import { UpdateProgramStageDto } from './dto/update-program-stage.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-stages')
+@Public()
 @Controller('programs/:programId/stages')
 export class ProgramStagesController {
   constructor(private readonly service: ProgramStagesService) {}

@@ -104,11 +104,8 @@ export class UsersService {
 
     const dataToUpdate: any = { ...updateUserDto };
 
-    if (updateUserDto.roles && existingUser.roles) {
-      // Merge unique roles
-      dataToUpdate.roles = Array.from(
-        new Set([...existingUser.roles, ...updateUserDto.roles]),
-      );
+    if (updateUserDto.roles) {
+      dataToUpdate.roles = updateUserDto.roles;
     }
 
     if (updateUserDto.password) {

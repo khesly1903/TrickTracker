@@ -24,8 +24,10 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('instructors')
+@Public()
 @Controller('instructors')
 export class InstructorsController {
   constructor(private readonly instructorsService: InstructorsService) {}
