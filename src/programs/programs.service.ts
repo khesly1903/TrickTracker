@@ -19,21 +19,17 @@ export class ProgramsService {
     maxAllowed.setFullYear(maxAllowed.getFullYear() + 2);
 
     if (start < minAllowed || start > maxAllowed) {
-      throw new BadRequestException(
-        'startDate must be within 1 year past and 2 years future.',
-      );
+      throw new BadRequestException('startDate must be within 1 year past and 2 years future.');
     }
     if (end < minAllowed || end > maxAllowed) {
-      throw new BadRequestException(
-        'endDate must be within 1 year past and 2 years future.',
-      );
+      throw new BadRequestException('endDate must be within 1 year past and 2 years future.');
     }
     if (start >= end) {
       throw new BadRequestException('startDate must be before endDate.');
     }
   }
 
-  async create(createProgramDto: CreateProgramDto) {
+  async create(createProgramDto: CreateProgramDto, academyId: string) {
     const start = createProgramDto.startDate;
     const end = createProgramDto.endDate;
 
@@ -43,21 +39,21 @@ export class ProgramsService {
       throw new BadRequestException('minAge must be <= maxAge.');
     }
 
-    const classExists = await this.prisma.class.findUnique({
-      where: { id: createProgramDto.classId },
+    const classExists = await this.prisma.class.findFirst({
+      where: { id: createProgramDto.classId, academyId },
     });
     if (!classExists) throw new NotFoundException('Class not found.');
 
     const program = await this.prisma.program.create({
-      data: { ...createProgramDto },
+      data: { ...createProgramDto, academyId },
     });
 
-    return this.findOne(program.id);
+    return this.findOne(program.id, academyId);
   }
 
-  async findAll() {
+  async findAll(academyId: string) {
     return this.prisma.program.findMany({
-      where: { isActive: true },
+      where: { isActive: true, academyId },
       include: {
         inheritedClass: true,
         programStages: {
@@ -77,9 +73,9 @@ export class ProgramsService {
     });
   }
 
-  async findOne(id: string) {
-    const program = await this.prisma.program.findUnique({
-      where: { id },
+  async findOne(id: string, academyId: string) {
+    const program = await this.prisma.program.findFirst({
+      where: { id, academyId },
       include: {
         inheritedClass: true,
         programStages: {
@@ -102,12 +98,12 @@ export class ProgramsService {
     return program;
   }
 
-  async update(id: string, updateProgramDto: UpdateProgramDto) {
-    const existing = await this.findOne(id);
+  async update(id: string, updateProgramDto: UpdateProgramDto, academyId: string) {
+    const existing = await this.findOne(id, academyId);
 
     if (updateProgramDto.classId) {
-      const classExists = await this.prisma.class.findUnique({
-        where: { id: updateProgramDto.classId },
+      const classExists = await this.prisma.class.findFirst({
+        where: { id: updateProgramDto.classId, academyId },
       });
       if (!classExists) throw new NotFoundException('Class not found.');
     }
@@ -118,15 +114,10 @@ export class ProgramsService {
       this.validateDateRange(start, end);
     }
 
-    if (
-      updateProgramDto.minAge !== undefined ||
-      updateProgramDto.maxAge !== undefined
-    ) {
+    if (updateProgramDto.minAge !== undefined || updateProgramDto.maxAge !== undefined) {
       const minAge = updateProgramDto.minAge ?? existing.minAge;
       const maxAge = updateProgramDto.maxAge ?? existing.maxAge;
-      if (minAge > maxAge) {
-        throw new BadRequestException('minAge must be <= maxAge.');
-      }
+      if (minAge > maxAge) throw new BadRequestException('minAge must be <= maxAge.');
     }
 
     return this.prisma.program.update({
@@ -135,8 +126,8 @@ export class ProgramsService {
     });
   }
 
-  async remove(id: string) {
-    const existing = await this.findOne(id);
+  async remove(id: string, academyId: string) {
+    const existing = await this.findOne(id, academyId);
 
     return this.prisma.program.update({
       where: { id: existing.id },
@@ -144,8 +135,8 @@ export class ProgramsService {
     });
   }
 
-  async hardRemove(id: string) {
-    const existing = await this.findOne(id);
+  async hardRemove(id: string, academyId: string) {
+    const existing = await this.findOne(id, academyId);
 
     return this.prisma.program.delete({
       where: { id: existing.id },

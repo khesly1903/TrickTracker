@@ -40,7 +40,10 @@ export class AuthService {
   }
 
   async login(user: { id: string; email: string; roles: any[] }) {
-    const tokens = await this.generateTokens(user);
+    const academy = await this.prisma.academy.findUnique({ where: { ownerId: user.id } });
+    const academyId = academy?.id ?? null;
+
+    const tokens = await this.generateTokens({ ...user, academyId });
 
     const refreshHash = await bcrypt.hash(tokens.refreshToken, 10);
     await this.prisma.user.update({
@@ -48,7 +51,7 @@ export class AuthService {
       data: { refreshToken: refreshHash, lastLoginAt: new Date() },
     });
 
-    return { ...tokens, user: { id: user.id, email: user.email, roles: user.roles } };
+    return { ...tokens, user: { id: user.id, email: user.email, roles: user.roles, academyId } };
   }
 
   async logout(userId: string) {
@@ -74,7 +77,10 @@ export class AuthService {
     const tokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
     if (!tokenMatches) throw new ForbiddenException('Access denied.');
 
-    const tokens = await this.generateTokens({ id: user.id, email: user.email, roles: user.roles });
+    const academy = await this.prisma.academy.findUnique({ where: { ownerId: user.id } });
+    const academyId = academy?.id ?? null;
+
+    const tokens = await this.generateTokens({ id: user.id, email: user.email, roles: user.roles, academyId });
 
     const refreshHash = await bcrypt.hash(tokens.refreshToken, 10);
     await this.prisma.user.update({
@@ -82,18 +88,19 @@ export class AuthService {
       data: { refreshToken: refreshHash },
     });
 
-    return { ...tokens, user: { id: user.id, email: user.email, roles: user.roles } };
+    return { ...tokens, user: { id: user.id, email: user.email, roles: user.roles, academyId } };
   }
 
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
+    const academy = await this.prisma.academy.findUnique({ where: { ownerId: userId } });
     const { passwordHash, refreshToken, ...safeUser } = user;
-    return safeUser;
+    return { ...safeUser, academyId: academy?.id ?? null };
   }
 
-  private async generateTokens(user: { id: string; email: string; roles: any[] }) {
-    const payload: JwtPayload = { sub: user.id, email: user.email, roles: user.roles };
+  private async generateTokens(user: { id: string; email: string; roles: any[]; academyId: string | null }) {
+    const payload: JwtPayload = { sub: user.id, email: user.email, roles: user.roles, academyId: user.academyId };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {

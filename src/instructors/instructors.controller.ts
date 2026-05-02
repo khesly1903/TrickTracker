@@ -16,6 +16,7 @@ import { UpdateInstructorDto } from './dto/update-instructor.dto';
 import { FilterInstructorDto } from './dto/filter-instructor.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -24,94 +25,72 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('instructors')
-@Public()
+@ApiBearerAuth()
 @Controller('instructors')
 export class InstructorsController {
   constructor(private readonly instructorsService: InstructorsService) {}
 
   @ApiOperation({ summary: 'Register a new instructor profile' })
-  @ApiCreatedResponse({
-    description: 'Instructor successfully created.',
-  })
-  @ApiConflictResponse({
-    description: 'User ID not found or instructor profile already exists.',
-  })
+  @ApiCreatedResponse({ description: 'Instructor successfully created.' })
+  @ApiConflictResponse({ description: 'User ID not found or instructor profile already exists.' })
   @Post()
-  async createInstructor(@Body() createInstructorDto: CreateInstructorDto) {
-    return this.instructorsService.create(createInstructorDto);
+  async createInstructor(@Body() createInstructorDto: CreateInstructorDto, @CurrentUser() user: AuthUser) {
+    return this.instructorsService.create(createInstructorDto, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Filter instructors by name or surname' })
-  @ApiOkResponse({
-    description: 'Return instructors matching the filter criteria.',
-  })
+  @ApiOkResponse({ description: 'Return instructors matching the filter criteria.' })
   @Get('filter')
-  async filter(@Query() filterDto: FilterInstructorDto) {
-    return this.instructorsService.filter(filterDto);
+  async filter(@Query() filterDto: FilterInstructorDto, @CurrentUser() user: AuthUser) {
+    return this.instructorsService.filter(filterDto, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Retrieve all active instructors with pagination' })
-  @ApiOkResponse({
-    description: 'Return a paginated list of all active instructors.',
-  })
+  @ApiOkResponse({ description: 'Return a paginated list of all active instructors.' })
   @Get()
-  async findAll(@Query() paginationQuery: PaginationQueryDto) {
-    return this.instructorsService.findAll(paginationQuery);
+  async findAll(@Query() paginationQuery: PaginationQueryDto, @CurrentUser() user: AuthUser) {
+    return this.instructorsService.findAll(paginationQuery, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Get instructor by ID or User ID' })
-  @ApiOkResponse({
-    description: 'Return the instructor record.',
-  })
-  @ApiNotFoundResponse({
-    description: 'Instructor not found.',
-  })
+  @ApiOkResponse({ description: 'Return the instructor record.' })
+  @ApiNotFoundResponse({ description: 'Instructor not found.' })
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.instructorsService.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.instructorsService.findOne(id, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Update an instructor profile' })
-  @ApiOkResponse({
-    description: 'Instructor successfully updated.',
-  })
-  @ApiNotFoundResponse({
-    description: 'Instructor not found.',
-  })
+  @ApiOkResponse({ description: 'Instructor successfully updated.' })
+  @ApiNotFoundResponse({ description: 'Instructor not found.' })
   @Patch(':id')
   async update(
     @Param('id') id: string,
     @Body() updateInstructorDto: UpdateInstructorDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.instructorsService.update(id, updateInstructorDto);
+    return this.instructorsService.update(id, updateInstructorDto, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Permanently delete an instructor' })
-  @ApiNoContentResponse({
-    description: 'Instructor permanently deleted.',
-  })
-  @ApiNotFoundResponse({
-    description: 'Instructor not found.',
-  })
+  @ApiNoContentResponse({ description: 'Instructor permanently deleted.' })
+  @ApiNotFoundResponse({ description: 'Instructor not found.' })
   @Delete('hard/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async hardRemove(@Param('id') id: string) {
-    return this.instructorsService.hardRemove(id);
+  async hardRemove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.instructorsService.hardRemove(id, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Soft-delete an instructor' })
-  @ApiNoContentResponse({
-    description: 'Instructor soft-deleted (isActive set to false).',
-  })
-  @ApiNotFoundResponse({
-    description: 'Instructor not found.',
-  })
+  @ApiNoContentResponse({ description: 'Instructor soft-deleted (isActive set to false).' })
+  @ApiNotFoundResponse({ description: 'Instructor not found.' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) {
-    return this.instructorsService.remove(id);
+  async remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.instructorsService.remove(id, user.academyId!);
   }
 }

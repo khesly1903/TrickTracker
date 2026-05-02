@@ -6,12 +6,9 @@ import { ScheduleType, StudentType } from '@prisma/client';
 export class DashboardService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  async getDashboardData() {
+  async getDashboardData(academyId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
 
     const [
       activeStudentsCount,
@@ -23,34 +20,26 @@ export class DashboardService {
       recentPrograms,
       upcomingSessions,
       programsByLocation,
-      studentsByLevel,
     ] = await Promise.all([
-      // General Statistics
-      this.prisma.student.count({ where: { isActive: true } }),
-      this.prisma.student.count({
-        where: { isActive: true, type: StudentType.CHILD },
-      }),
-      this.prisma.student.count({
-        where: { isActive: true, type: StudentType.ADULT },
-      }),
-      this.prisma.program.count({ where: { isActive: true } }),
-      this.prisma.instructor.count({ where: { isActive: true } }),
+      this.prisma.student.count({ where: { isActive: true, academyId } }),
+      this.prisma.student.count({ where: { isActive: true, type: StudentType.CHILD, academyId } }),
+      this.prisma.student.count({ where: { isActive: true, type: StudentType.ADULT, academyId } }),
+      this.prisma.program.count({ where: { isActive: true, academyId } }),
+      this.prisma.instructor.count({ where: { isActive: true, academyId } }),
 
-      // Recent Activity
       this.prisma.student.findMany({
-        where: { isActive: true },
+        where: { isActive: true, academyId },
         orderBy: { createdAt: 'desc' },
         take: 5,
         select: { id: true, name: true, surname: true, createdAt: true },
       }),
       this.prisma.program.findMany({
-        where: { isActive: true },
+        where: { isActive: true, academyId },
         orderBy: { startDate: 'desc' },
         take: 5,
         select: { id: true, name: true, startDate: true },
       }),
 
-      // Upcoming Sessions for today
       this.prisma.programSession.findMany({
         where: {
           date: {
@@ -58,43 +47,35 @@ export class DashboardService {
             lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
           },
           type: { not: ScheduleType.CANCELLED },
+          programLocation: { program: { academyId } },
         },
         include: {
           programLocation: {
             include: {
-              program: {
-                select: { name: true },
-              },
+              program: { select: { name: true } },
+              location: { select: { name: true } },
             },
           },
         },
         orderBy: { startTime: 'asc' },
       }),
 
-      // Distributions
       this.prisma.location.findMany({
-        where: { isActive: true },
+        where: { isActive: true, academyId },
         select: {
           name: true,
-          _count: {
-            select: { programLocations: true },
-          },
+          _count: { select: { programLocations: true } },
         },
-      }),
-
-      this.prisma.studentProgram.groupBy({
-        by: ['programLocationId'],
-        _count: { studentId: true },
       }),
     ]);
 
-    // Calculate attendance rate for last 7 days (mocking logic for now as it requires complex aggregation)
     const last7Days = new Date(today);
     last7Days.setDate(today.getDate() - 7);
 
     const recentAttendances = await this.prisma.attendance.findMany({
       where: {
         createdAt: { gte: last7Days },
+        studentProgram: { student: { academyId } },
       },
       select: { attended: true },
     });
@@ -102,25 +83,17 @@ export class DashboardService {
     const totalAttendanceRecords = recentAttendances.length;
     const attendedCount = recentAttendances.filter((a) => a.attended).length;
     const attendanceRate =
-      totalAttendanceRecords > 0
-        ? (attendedCount / totalAttendanceRecords) * 100
-        : 0;
+      totalAttendanceRecords > 0 ? (attendedCount / totalAttendanceRecords) * 100 : 0;
 
     return {
       statistics: {
         totalStudents: activeStudentsCount,
-        studentsByType: {
-          child: childStudentsCount,
-          adult: adultStudentsCount,
-        },
+        studentsByType: { child: childStudentsCount, adult: adultStudentsCount },
         totalPrograms: activeProgramsCount,
         totalInstructors: activeInstructorsCount,
         attendanceRate: Math.round(attendanceRate * 100) / 100,
       },
-      recentActivity: {
-        students: recentStudents,
-        programs: recentPrograms,
-      },
+      recentActivity: { students: recentStudents, programs: recentPrograms },
       upcomingSessions,
       distributions: {
         byLocation: programsByLocation.map((l) => ({

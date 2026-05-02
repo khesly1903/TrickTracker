@@ -7,67 +7,37 @@ import { UpdateClassDto } from './dto/update-class.dto';
 export class ClassesService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  /**
-   * Creates a new class category.
-   * @param createClassDto Data to create a class.
-   * @returns The created class record.
-   */
-  async create(createClassDto: CreateClassDto) {
+  async create(createClassDto: CreateClassDto, academyId: string) {
     return this.prisma.class.create({
       data: {
         name: createClassDto.name,
         type: createClassDto.type,
+        academyId,
       },
     });
   }
 
-  /**
-   * Retrieves all active classes.
-   * @returns A list of active classes.
-   */
-  async findAll() {
+  async findAll(academyId: string) {
     return this.prisma.class.findMany({
-      where: {
-        isActive: true,
-      },
+      where: { isActive: true, academyId },
       include: {
-        _count: {
-          select: { programs: true },
-        },
+        _count: { select: { programs: true } },
       },
     });
   }
 
-  /**
-   * Finds a specific class by its unique ID.
-   * @param id The class ID.
-   * @returns The class record.
-   * @throws NotFoundException if class is not found.
-   */
-  async findOne(id: string) {
-    const classRecord = await this.prisma.class.findUnique({
-      where: { id },
-      include: {
-        programs: true,
-      },
+  async findOne(id: string, academyId: string) {
+    const classRecord = await this.prisma.class.findFirst({
+      where: { id, academyId },
+      include: { programs: true },
     });
 
-    if (!classRecord) {
-      throw new NotFoundException('Class not found.');
-    }
-
+    if (!classRecord) throw new NotFoundException('Class not found.');
     return classRecord;
   }
 
-  /**
-   * Updates an existing class record.
-   * @param id The class ID.
-   * @param updateClassDto Data to update.
-   * @returns The updated class record.
-   * @throws NotFoundException if class is not found.
-   */
-  async update(id: string, updateClassDto: UpdateClassDto) {
-    const existingClass = await this.findOne(id);
+  async update(id: string, updateClassDto: UpdateClassDto, academyId: string) {
+    const existingClass = await this.findOne(id, academyId);
 
     return this.prisma.class.update({
       where: { id: existingClass.id },
@@ -75,31 +45,17 @@ export class ClassesService {
     });
   }
 
-  /**
-   * Soft-deletes a class by setting isActive to false.
-   * @param id The class ID.
-   * @returns The updated class record.
-   * @throws NotFoundException if class is not found.
-   */
-  async remove(id: string) {
-    const existingClass = await this.findOne(id);
+  async remove(id: string, academyId: string) {
+    const existingClass = await this.findOne(id, academyId);
 
     return this.prisma.class.update({
       where: { id: existingClass.id },
-      data: {
-        isActive: false,
-      },
+      data: { isActive: false },
     });
   }
 
-  /**
-   * Permanently deletes a class record from the database.
-   * @param id The class ID.
-   * @returns The deleted class record.
-   * @throws NotFoundException if class is not found.
-   */
-  async hardRemove(id: string) {
-    const existingClass = await this.findOne(id);
+  async hardRemove(id: string, academyId: string) {
+    const existingClass = await this.findOne(id, academyId);
 
     return this.prisma.class.delete({
       where: { id: existingClass.id },

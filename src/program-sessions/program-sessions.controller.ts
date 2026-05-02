@@ -15,6 +15,7 @@ import { CreateProgramSessionDto } from './dto/create-program-session.dto';
 import { UpdateProgramSessionDto } from './dto/update-program-session.dto';
 import { DeleteMultipleSessionsDto } from './dto/delete-multiple-program-sessions.dto';
 import {
+  ApiBearerAuth,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -23,10 +24,9 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-sessions')
-@Public()
+@ApiBearerAuth()
 @Controller('program-sessions')
 export class ProgramSessionsController {
   constructor(

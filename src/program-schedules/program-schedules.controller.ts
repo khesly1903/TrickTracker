@@ -10,6 +10,7 @@ import {
   Post,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -20,10 +21,9 @@ import {
 import { ProgramSchedulesService } from './program-schedules.service';
 import { CreateProgramScheduleDto } from './dto/create-program-schedule.dto';
 import { UpdateProgramScheduleDto } from './dto/update-program-schedule.dto';
-import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-schedules')
-@Public()
+@ApiBearerAuth()
 @Controller('program-schedules')
 export class ProgramSchedulesController {
   constructor(private readonly service: ProgramSchedulesService) {}

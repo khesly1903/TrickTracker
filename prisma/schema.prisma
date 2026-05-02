@@ -69,6 +69,29 @@ enum ScheduleType {
   MAKEUP
 }
 
+model Academy {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  logoUrl     String?
+  phone       String?
+  address     String?
+  isActive    Boolean  @default(true)
+
+  ownerId     String   @unique
+  owner       User     @relation("AcademyOwner", fields: [ownerId], references: [id])
+
+  students    Student[]
+  contacts    Contact[]
+  instructors Instructor[]
+  classes     Class[]
+  programs    Program[]
+  locations   Location[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+}
+
 model User {
   id           String @id @default(uuid())
   email        String @unique
@@ -78,6 +101,8 @@ model User {
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
   refreshToken String?
+
+  ownedAcademy      Academy?   @relation("AcademyOwner")
 
   studentProfile    Student?
   contactProfile    Contact?
@@ -91,6 +116,9 @@ model Student {
   id     String  @id @default(uuid())
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
 
   name                 String
   surname              String
@@ -107,12 +135,17 @@ model Student {
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([academyId])
 }
 
 model Contact {
   id     String  @id @default(uuid())
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
 
   name                 String
   surname              String
@@ -126,12 +159,17 @@ model Contact {
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([academyId])
 }
 
 model Instructor {
   id     String  @id @default(uuid())
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
 
   name                 String
   surname              String
@@ -147,6 +185,8 @@ model Instructor {
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([academyId])
 }
 
 model Class {
@@ -156,8 +196,13 @@ model Class {
   programs Program[]
   isActive Boolean    @default(true)
 
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([academyId])
 }
 
 model Program {
@@ -180,7 +225,12 @@ model Program {
   inheritedClass Class  @relation(fields: [classId], references: [id])
   classId        String
 
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
+
   programLocations ProgramLocation[]
+
+  @@index([academyId])
 }
 
 model ProgramLocation {
@@ -264,8 +314,13 @@ model Location {
   isActive Boolean   @default(true)
   programLocations ProgramLocation[]
 
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([academyId])
 }
 
 model StudentProgram {

@@ -14,112 +14,47 @@ import * as bcrypt from 'bcrypt';
 export class InstructorsService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  /**
-   * Registers a new instructor profile linked to an existing user.
-   * @param createInstructorDto Data to create the instructor.
-   * @returns The created instructor profile.
-   * @throws ConflictException if user ID not found or instructor already exists.
-   */
-  async create(createInstructorDto: CreateInstructorDto) {
-    const { email, password, roles, userId, ...instructorData } =
-      createInstructorDto;
+  async create(createInstructorDto: CreateInstructorDto, academyId: string) {
+    const { email, password, roles, userId, ...instructorData } = createInstructorDto;
 
-    console.log('[DEBUG] Starting createInstructor process with data:', {
-      email,
-      userId,
-      instructorData,
-    });
+    return this.prisma.$transaction(async (prisma) => {
+      let finalUserId = userId;
 
-    try {
-      return await this.prisma.$transaction(async (prisma) => {
-        let finalUserId = userId;
+      if (email) {
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) throw new ConflictException('A user with this email already exists.');
 
-        if (email) {
-          console.log('[DEBUG] Email provided, creating/linking user...');
-          const existingUser = await prisma.user.findUnique({
-            where: { email },
-          });
+        const finalPassword = password || 'TrickTrackerTemp123!';
+        const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
-          if (existingUser) {
-            console.log('[DEBUG] User already exists with email:', email);
-            throw new ConflictException(
-              'A user with this email already exists.',
-            );
-          }
-
-          const saltRounds = 10;
-          const finalPassword = password || 'TrickTrackerTemp123!';
-          console.log('[DEBUG] Hashing password...');
-          const hashedPassword = await bcrypt.hash(finalPassword, saltRounds);
-
-          console.log('[DEBUG] Creating user in Transaction...');
-          const newUser = await prisma.user.create({
-            data: {
-              email,
-              passwordHash: hashedPassword,
-              roles: roles || ['INSTRUCTOR'],
-            },
-          });
-          finalUserId = newUser.id;
-          console.log('[DEBUG] User created with ID:', finalUserId);
-        } else if (userId) {
-          const existingUser = await prisma.user.findUnique({
-            where: { id: userId },
-          });
-
-          if (!existingUser) {
-            throw new ConflictException(
-              'A user with this ID does not exist in the system.',
-            );
-          }
-
-          const existingInstructor = await prisma.instructor.findUnique({
-            where: { userId },
-          });
-
-          if (existingInstructor) {
-            throw new ConflictException(
-              'This user already has an instructor profile.',
-            );
-          }
-        }
-
-        console.log('[DEBUG] Creating instructor profile...');
-        const instructor = await prisma.instructor.create({
-          data: {
-            ...instructorData,
-            userId: finalUserId,
-          },
-          include: { user: true },
+        const newUser = await prisma.user.create({
+          data: { email, passwordHash: hashedPassword, roles: roles || ['INSTRUCTOR'] },
         });
+        finalUserId = newUser.id;
+      } else if (userId) {
+        const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (!existingUser) throw new ConflictException('A user with this ID does not exist in the system.');
 
-        console.log('[DEBUG] Instructor created successfully.');
-        const { user: linkedUser, ...rest } = instructor;
-        return {
-          ...rest,
-          email: linkedUser?.email || null,
-        };
+        const existingInstructor = await prisma.instructor.findUnique({ where: { userId } });
+        if (existingInstructor) throw new ConflictException('This user already has an instructor profile.');
+      }
+
+      const instructor = await prisma.instructor.create({
+        data: { ...instructorData, userId: finalUserId, academyId },
+        include: { user: true },
       });
-    } catch (error) {
-      console.error('[ERROR LOG] Exception caught in createInstructor:', error);
-      throw error;
-    }
+
+      const { user: linkedUser, ...rest } = instructor;
+      return { ...rest, email: linkedUser?.email || null };
+    });
   }
 
-  /**
-   * Filters instructors by name or surname.
-   * @param filterDto Contains the fullname filter.
-   * @returns A list of filtered instructors.
-   */
-  async filter(filterDto: FilterInstructorDto) {
+  async filter(filterDto: FilterInstructorDto, academyId: string) {
     const { fullname } = filterDto;
 
-    const where: any = {
-      isActive: true, // only active instructors
-    };
+    const where: any = { isActive: true, academyId };
 
     if (fullname) {
-      // search in both name and surname
       where.OR = [
         { name: { contains: fullname, mode: 'insensitive' } },
         { surname: { contains: fullname, mode: 'insensitive' } },
@@ -128,32 +63,20 @@ export class InstructorsService {
 
     const instructors = await this.prisma.instructor.findMany({
       where,
-      include: {
-        user: true,
-      },
+      include: { user: true },
     });
 
     return instructors.map((instructor) => {
       const { user, ...rest } = instructor;
-      return {
-        ...rest,
-        email: user?.email || null,
-      };
+      return { ...rest, email: user?.email || null };
     });
   }
 
-  /**
-   * Retrieves active instructors with pagination.
-   * @param paginationQuery Page and limit for pagination.
-   * @returns Paginated instructors and metadata.
-   */
-  async findAll(paginationQuery: PaginationQueryDto) {
+  async findAll(paginationQuery: PaginationQueryDto, academyId: string) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      isActive: true,
-    };
+    const where: any = { isActive: true, academyId };
 
     const [total, instructors] = await Promise.all([
       this.prisma.instructor.count({ where }),
@@ -161,12 +84,8 @@ export class InstructorsService {
         where,
         skip,
         take: limit,
-        include: {
-          user: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -175,49 +94,26 @@ export class InstructorsService {
     return {
       data: instructors.map((instructor) => {
         const { user: linkedUser, ...rest } = instructor;
-        return {
-          ...rest,
-          email: linkedUser?.email || null,
-        };
+        return { ...rest, email: linkedUser?.email || null };
       }),
-      meta: {
-        total,
-        page,
-        lastPage,
-        limit,
-      },
+      meta: { total, page, lastPage, limit },
     };
   }
 
-  /**
-   * Finds a specific instructor by their unique ID or associated User ID.
-   * @param id The instructor ID or User ID.
-   * @returns The instructor record.
-   * @throws NotFoundException if instructor is not found.
-   */
-  async findOne(id: string) {
+  async findOne(id: string, academyId: string) {
     const instructor = await this.prisma.instructor.findFirst({
       where: {
         OR: [{ id }, { userId: id }],
+        academyId,
       },
     });
 
-    if (!instructor) {
-      throw new NotFoundException('Instructor not found.');
-    }
-
+    if (!instructor) throw new NotFoundException('Instructor not found.');
     return instructor;
   }
 
-  /**
-   * Updates an existing instructor's profile.
-   * @param id The instructor ID.
-   * @param updateInstructorDto Data to update.
-   * @returns The updated instructor record.
-   * @throws NotFoundException if instructor is not found.
-   */
-  async update(id: string, updateInstructorDto: UpdateInstructorDto) {
-    const existingInstructor = await this.findOne(id);
+  async update(id: string, updateInstructorDto: UpdateInstructorDto, academyId: string) {
+    const existingInstructor = await this.findOne(id, academyId);
 
     return this.prisma.instructor.update({
       where: { id: existingInstructor.id },
@@ -232,31 +128,17 @@ export class InstructorsService {
     });
   }
 
-  /**
-   * Soft-deletes an instructor by setting isActive to false.
-   * @param id The instructor ID.
-   * @returns The updated instructor record.
-   * @throws NotFoundException if instructor is not found.
-   */
-  async remove(id: string) {
-    const existingInstructor = await this.findOne(id);
+  async remove(id: string, academyId: string) {
+    const existingInstructor = await this.findOne(id, academyId);
 
     return this.prisma.instructor.update({
       where: { id: existingInstructor.id },
-      data: {
-        isActive: false,
-      },
+      data: { isActive: false },
     });
   }
 
-  /**
-   * Permanently deletes an instructor record from the database.
-   * @param id The instructor ID.
-   * @returns The deleted instructor record.
-   * @throws NotFoundException if instructor is not found.
-   */
-  async hardRemove(id: string) {
-    const existingInstructor = await this.findOne(id);
+  async hardRemove(id: string, academyId: string) {
+    const existingInstructor = await this.findOne(id, academyId);
 
     return this.prisma.instructor.delete({
       where: { id: existingInstructor.id },

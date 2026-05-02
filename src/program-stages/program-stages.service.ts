@@ -11,16 +11,14 @@ import { UpdateProgramStageDto } from './dto/update-program-stage.dto';
 export class ProgramStagesService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  async create(programId: string, dto: CreateProgramStageDto) {
-    await this.verifyProgram(programId);
+  async create(programId: string, dto: CreateProgramStageDto, academyId: string) {
+    await this.verifyProgram(programId, academyId);
 
     const duplicate = await this.prisma.programStage.findUnique({
       where: { programId_name: { programId, name: dto.name } },
     });
     if (duplicate) {
-      throw new ConflictException(
-        `Stage "${dto.name}" already exists for this program.`,
-      );
+      throw new ConflictException(`Stage "${dto.name}" already exists for this program.`);
     }
 
     return this.prisma.programStage.create({
@@ -29,8 +27,8 @@ export class ProgramStagesService {
     });
   }
 
-  async findAll(programId: string) {
-    await this.verifyProgram(programId);
+  async findAll(programId: string, academyId: string) {
+    await this.verifyProgram(programId, academyId);
 
     return this.prisma.programStage.findMany({
       where: { programId },
@@ -39,7 +37,9 @@ export class ProgramStagesService {
     });
   }
 
-  async findOne(programId: string, id: string) {
+  async findOne(programId: string, id: string, academyId: string) {
+    await this.verifyProgram(programId, academyId);
+
     const stage = await this.prisma.programStage.findUnique({
       where: { id },
       include: { skills: { orderBy: { name: 'asc' } } },
@@ -52,17 +52,15 @@ export class ProgramStagesService {
     return stage;
   }
 
-  async update(programId: string, id: string, dto: UpdateProgramStageDto) {
-    await this.findOne(programId, id);
+  async update(programId: string, id: string, dto: UpdateProgramStageDto, academyId: string) {
+    await this.findOne(programId, id, academyId);
 
     if (dto.name) {
       const duplicate = await this.prisma.programStage.findUnique({
         where: { programId_name: { programId, name: dto.name } },
       });
       if (duplicate && duplicate.id !== id) {
-        throw new ConflictException(
-          `Stage "${dto.name}" already exists for this program.`,
-        );
+        throw new ConflictException(`Stage "${dto.name}" already exists for this program.`);
       }
     }
 
@@ -73,14 +71,14 @@ export class ProgramStagesService {
     });
   }
 
-  async remove(programId: string, id: string) {
-    await this.findOne(programId, id);
+  async remove(programId: string, id: string, academyId: string) {
+    await this.findOne(programId, id, academyId);
     await this.prisma.programStage.delete({ where: { id } });
   }
 
-  private async verifyProgram(programId: string) {
-    const program = await this.prisma.program.findUnique({
-      where: { id: programId },
+  private async verifyProgram(programId: string, academyId: string) {
+    const program = await this.prisma.program.findFirst({
+      where: { id: programId, academyId },
     });
     if (!program) throw new NotFoundException('Program not found.');
   }

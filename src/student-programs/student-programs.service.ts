@@ -15,13 +15,7 @@ export class StudentProgramsService {
     private readonly studentProgramSkillsService: StudentProgramSkillsService,
   ) {}
 
-  /**
-   * Enrolls a student in a program and auto-populates curriculum skills.
-   * @param createDto The student and program IDs.
-   * @returns The created enrollment with populated skills count.
-   * @throws ConflictException if the student is already enrolled.
-   */
-  async enroll(createDto: CreateStudentProgramDto) {
+  async enroll(createDto: CreateStudentProgramDto, academyId: string) {
     const existing = await this.prisma.studentProgram.findUnique({
       where: {
         studentId_programLocationId: {
@@ -31,32 +25,22 @@ export class StudentProgramsService {
       },
     });
 
-    if (existing) {
-      throw new ConflictException(
-        'Student is already enrolled in this program.',
-      );
-    }
+    if (existing) throw new ConflictException('Student is already enrolled in this program.');
 
-    const student = await this.prisma.student.findUnique({
-      where: { id: createDto.studentId },
+    const student = await this.prisma.student.findFirst({
+      where: { id: createDto.studentId, academyId },
     });
-    if (!student || !student.isActive) {
-      throw new NotFoundException('Student not found or inactive.');
-    }
+    if (!student || !student.isActive) throw new NotFoundException('Student not found or inactive.');
 
-    const programLocation = await this.prisma.programLocation.findUnique({
-      where: { id: createDto.programLocationId },
+    const programLocation = await this.prisma.programLocation.findFirst({
+      where: { id: createDto.programLocationId, program: { academyId } },
       include: {
         program: true,
-        _count: {
-          select: { studentPrograms: { where: { isActive: true } } },
-        },
+        _count: { select: { studentPrograms: { where: { isActive: true } } } },
       },
     });
 
-    if (!programLocation) {
-      throw new NotFoundException('Program location not found.');
-    }
+    if (!programLocation) throw new NotFoundException('Program location not found.');
 
     if (programLocation.program.endDate < new Date()) {
       throw new BadRequestException('This program has already ended.');
@@ -66,29 +50,18 @@ export class StudentProgramsService {
       throw new ConflictException('Program location is at full capacity.');
     }
 
-    const enrollment = await this.prisma.studentProgram.create({
-      data: createDto,
-    });
+    const enrollment = await this.prisma.studentProgram.create({ data: createDto });
 
-    // Auto-populate skills from the program curriculum
-    const skillResult =
-      await this.studentProgramSkillsService.populateForEnrollment(
-        enrollment.id,
-      );
+    const skillResult = await this.studentProgramSkillsService.populateForEnrollment(enrollment.id);
 
-    return {
-      enrollment,
-      skillsPopulated: skillResult.count,
-    };
+    return { enrollment, skillsPopulated: skillResult.count };
   }
 
-  /**
-   * Lists enrollments, optionally filtered by studentId or programId.
-   * @param studentId Optional student filter.
-   * @param programId Optional program filter.
-   */
-  async findAll(studentId?: string, programLocationId?: string) {
-    const where: any = { isActive: true };
+  async findAll(academyId: string, studentId?: string, programLocationId?: string) {
+    const where: any = {
+      isActive: true,
+      student: { academyId },
+    };
     if (studentId) where.studentId = studentId;
     if (programLocationId) where.programLocationId = programLocationId;
 
@@ -106,25 +79,16 @@ export class StudentProgramsService {
     });
   }
 
-  /**
-   * Gets a specific enrollment by ID with full details.
-   * @param id The StudentProgram ID.
-   */
-  async findOne(id: string) {
-    const enrollment = await this.prisma.studentProgram.findUnique({
-      where: { id },
+  async findOne(id: string, academyId: string) {
+    const enrollment = await this.prisma.studentProgram.findFirst({
+      where: { id, student: { academyId } },
       include: {
         student: true,
         programLocation: {
-          include: {
-            program: true,
-            location: true,
-          },
+          include: { program: true, location: true },
         },
         studentProgramSkills: {
-          include: {
-            programSkill: true,
-          },
+          include: { programSkill: true },
         },
       },
     });
@@ -133,12 +97,8 @@ export class StudentProgramsService {
     return enrollment;
   }
 
-  /**
-   * Soft-deletes an enrollment by setting isActive to false.
-   * @param id The StudentProgram ID.
-   */
-  async remove(id: string) {
-    const existing = await this.findOne(id);
+  async remove(id: string, academyId: string) {
+    const existing = await this.findOne(id, academyId);
 
     return this.prisma.studentProgram.update({
       where: { id: existing.id },
@@ -146,15 +106,9 @@ export class StudentProgramsService {
     });
   }
 
-  /**
-   * Permanently deletes an enrollment and all related data (cascade).
-   * @param id The StudentProgram ID.
-   */
-  async hardRemove(id: string) {
-    const existing = await this.findOne(id);
+  async hardRemove(id: string, academyId: string) {
+    const existing = await this.findOne(id, academyId);
 
-    return this.prisma.studentProgram.delete({
-      where: { id: existing.id },
-    });
+    return this.prisma.studentProgram.delete({ where: { id: existing.id } });
   }
 }

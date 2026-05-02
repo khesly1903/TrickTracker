@@ -2,15 +2,15 @@ import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { AttendancesService } from './attendances.service';
 import { BulkAttendanceDto } from './dto/bulk-attendance.dto';
 import {
+  ApiBearerAuth,
   ApiTags,
   ApiOperation,
   ApiOkResponse,
   ApiCreatedResponse,
 } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('attendances')
-@Public()
+@ApiBearerAuth()
 @Controller('attendances')
 export class AttendancesController {
   constructor(private readonly attendancesService: AttendancesService) {}

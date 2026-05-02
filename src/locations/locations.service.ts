@@ -7,63 +7,34 @@ import { UpdateLocationDto } from './dto/update-location.dto';
 export class LocationsService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  /**
-   * Creates a new location.
-   * @param createLocationDto Data to create a location.
-   * @returns The created location record.
-   */
-  async create(createLocationDto: CreateLocationDto) {
+  async create(createLocationDto: CreateLocationDto, academyId: string) {
     return this.prisma.location.create({
-      data: createLocationDto,
+      data: { ...createLocationDto, academyId },
     });
   }
 
-  /**
-   * Retrieves all active locations.
-   * @returns A list of active locations.
-   */
-  async findAll() {
+  async findAll(academyId: string) {
     return this.prisma.location.findMany({
-      where: {
-        isActive: true,
-      },
+      where: { isActive: true, academyId },
     });
   }
 
-  /**
-   * Finds a specific location by its unique ID.
-   * @param id The location ID.
-   * @returns The location record.
-   * @throws NotFoundException if location is not found.
-   */
-  async findOne(id: string) {
-    const location = await this.prisma.location.findUnique({
-      where: { id },
+  async findOne(id: string, academyId: string) {
+    const location = await this.prisma.location.findFirst({
+      where: { id, academyId },
       include: {
         programLocations: {
-          include: {
-            program: true,
-          },
+          include: { program: true },
         },
       },
     });
 
-    if (!location) {
-      throw new NotFoundException('Location not found.');
-    }
-
+    if (!location) throw new NotFoundException('Location not found.');
     return location;
   }
 
-  /**
-   * Updates an existing location record.
-   * @param id The location ID.
-   * @param updateLocationDto Data to update.
-   * @returns The updated location record.
-   * @throws NotFoundException if location is not found.
-   */
-  async update(id: string, updateLocationDto: UpdateLocationDto) {
-    const existingLocation = await this.findOne(id);
+  async update(id: string, updateLocationDto: UpdateLocationDto, academyId: string) {
+    const existingLocation = await this.findOne(id, academyId);
 
     return this.prisma.location.update({
       where: { id: existingLocation.id },
@@ -71,31 +42,17 @@ export class LocationsService {
     });
   }
 
-  /**
-   * Soft-deletes a location by setting isActive to false.
-   * @param id The location ID.
-   * @returns The updated location record.
-   * @throws NotFoundException if location is not found.
-   */
-  async remove(id: string) {
-    const existingLocation = await this.findOne(id);
+  async remove(id: string, academyId: string) {
+    const existingLocation = await this.findOne(id, academyId);
 
     return this.prisma.location.update({
       where: { id: existingLocation.id },
-      data: {
-        isActive: false,
-      },
+      data: { isActive: false },
     });
   }
 
-  /**
-   * Permanently deletes a location record from the database.
-   * @param id The location ID.
-   * @returns The deleted location record.
-   * @throws NotFoundException if location is not found.
-   */
-  async hardRemove(id: string) {
-    const existingLocation = await this.findOne(id);
+  async hardRemove(id: string, academyId: string) {
+    const existingLocation = await this.findOne(id, academyId);
 
     return this.prisma.location.delete({
       where: { id: existingLocation.id },

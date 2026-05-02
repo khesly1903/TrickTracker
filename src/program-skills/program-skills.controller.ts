@@ -13,6 +13,7 @@ import { ProgramSkillsService } from './program-skills.service';
 import { BulkAddProgramSkillsDto } from './dto/add-program-skills.dto';
 import { UpdateProgramSkillDto } from './dto/update-program-skill.dto';
 import {
+  ApiBearerAuth,
   ApiTags,
   ApiOperation,
   ApiOkResponse,
@@ -21,10 +22,9 @@ import {
   ApiConflictResponse,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('program-skills')
-@Public()
+@ApiBearerAuth()
 @Controller('program-skills')
 export class ProgramSkillsController {
   constructor(private readonly service: ProgramSkillsService) {}

@@ -6,6 +6,8 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { AcademyRequiredGuard } from './auth/guards/academy-required.guard';
+import { AcademiesModule } from './academies/academies.module';
 import { UsersModule } from './users/users.module';
 import { StudentsModule } from './students/students.module';
 import { InstructorsModule } from './instructors/instructors.module';
@@ -27,6 +29,7 @@ import { ProgramStagesModule } from './program-stages/program-stages.module';
   imports: [
     DatabaseModule,
     AuthModule,
+    AcademiesModule,
     UsersModule,
     StudentsModule,
     InstructorsModule,
@@ -49,6 +52,7 @@ import { ProgramStagesModule } from './program-stages/program-stages.module';
     AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: AcademyRequiredGuard },
   ],
 })
 export class AppModule {}

@@ -10,6 +10,7 @@ import {
   Post,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -21,10 +22,11 @@ import {
 import { ProgramStagesService } from './program-stages.service';
 import { CreateProgramStageDto } from './dto/create-program-stage.dto';
 import { UpdateProgramStageDto } from './dto/update-program-stage.dto';
-import { Public } from '../auth/decorators/public.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('program-stages')
-@Public()
+@ApiBearerAuth()
 @Controller('programs/:programId/stages')
 export class ProgramStagesController {
   constructor(private readonly service: ProgramStagesService) {}
@@ -37,16 +39,17 @@ export class ProgramStagesController {
   async create(
     @Param('programId') programId: string,
     @Body() dto: CreateProgramStageDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.create(programId, dto);
+    return this.service.create(programId, dto, user.academyId!);
   }
 
   @ApiOperation({ summary: 'List all stages for a program' })
   @ApiOkResponse({ description: 'Returns list of stages.' })
   @ApiNotFoundResponse({ description: 'Program not found.' })
   @Get()
-  async findAll(@Param('programId') programId: string) {
-    return this.service.findAll(programId);
+  async findAll(@Param('programId') programId: string, @CurrentUser() user: AuthUser) {
+    return this.service.findAll(programId, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Get a stage by ID' })
@@ -56,8 +59,9 @@ export class ProgramStagesController {
   async findOne(
     @Param('programId') programId: string,
     @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.findOne(programId, id);
+    return this.service.findOne(programId, id, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Update a stage name' })
@@ -69,8 +73,9 @@ export class ProgramStagesController {
     @Param('programId') programId: string,
     @Param('id') id: string,
     @Body() dto: UpdateProgramStageDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.update(programId, id, dto);
+    return this.service.update(programId, id, dto, user.academyId!);
   }
 
   @ApiOperation({ summary: 'Delete a stage from a program' })
@@ -81,7 +86,8 @@ export class ProgramStagesController {
   async remove(
     @Param('programId') programId: string,
     @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.remove(programId, id);
+    return this.service.remove(programId, id, user.academyId!);
   }
 }

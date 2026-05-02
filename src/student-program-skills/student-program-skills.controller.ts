@@ -12,6 +12,7 @@ import {
 import { StudentProgramSkillsService } from './student-program-skills.service';
 import { UpdateStudentProgramSkillDto } from './dto/update-student-program-skill.dto';
 import {
+  ApiBearerAuth,
   ApiTags,
   ApiOperation,
   ApiOkResponse,
@@ -19,10 +20,9 @@ import {
   ApiNotFoundResponse,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('student-program-skills')
-@Public()
+@ApiBearerAuth()
 @Controller('student-program-skills')
 export class StudentProgramSkillsController {
   constructor(

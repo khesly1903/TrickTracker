@@ -11,16 +11,16 @@ import { UpdateProgramLocationDto } from './dto/update-program-location.dto';
 export class ProgramLocationsService {
   constructor(private readonly prisma: DatabaseService) {}
 
-  async create(dto: CreateProgramLocationDto) {
+  async create(dto: CreateProgramLocationDto, academyId: string) {
     const { backupInstructorIds, programId, locationId, ...rest } = dto;
 
-    const program = await this.prisma.program.findUnique({
-      where: { id: programId },
+    const program = await this.prisma.program.findFirst({
+      where: { id: programId, academyId },
     });
     if (!program) throw new NotFoundException('Program not found.');
 
-    const location = await this.prisma.location.findUnique({
-      where: { id: locationId },
+    const location = await this.prisma.location.findFirst({
+      where: { id: locationId, academyId },
     });
     if (!location) throw new NotFoundException('Location not found.');
 
@@ -28,9 +28,7 @@ export class ProgramLocationsService {
       where: { programId_locationId: { programId, locationId } },
     });
     if (duplicate) {
-      throw new ConflictException(
-        'This location is already assigned to the program.',
-      );
+      throw new ConflictException('This location is already assigned to the program.');
     }
 
     const programLocation = await this.prisma.programLocation.create({
@@ -44,12 +42,15 @@ export class ProgramLocationsService {
       },
     });
 
-    return this.findOne(programLocation.id);
+    return this.findOne(programLocation.id, academyId);
   }
 
-  async findAll(programId?: string) {
+  async findAll(academyId: string, programId?: string) {
     return this.prisma.programLocation.findMany({
-      where: programId ? { programId } : undefined,
+      where: {
+        program: { academyId },
+        ...(programId ? { programId } : {}),
+      },
       include: {
         location: true,
         instructor: true,
@@ -64,9 +65,9 @@ export class ProgramLocationsService {
     });
   }
 
-  async findOne(id: string) {
-    const pl = await this.prisma.programLocation.findUnique({
-      where: { id },
+  async findOne(id: string, academyId: string) {
+    const pl = await this.prisma.programLocation.findFirst({
+      where: { id, program: { academyId } },
       include: {
         location: true,
         instructor: true,
@@ -85,8 +86,8 @@ export class ProgramLocationsService {
     return pl;
   }
 
-  async update(id: string, dto: UpdateProgramLocationDto) {
-    await this.findOne(id);
+  async update(id: string, dto: UpdateProgramLocationDto, academyId: string) {
+    await this.findOne(id, academyId);
 
     const { backupInstructorIds, ...rest } = dto;
 
@@ -109,16 +110,16 @@ export class ProgramLocationsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, academyId: string) {
+    await this.findOne(id, academyId);
     await this.prisma.programLocation.delete({ where: { id } });
   }
 
-  async addBackupInstructor(id: string, instructorId: string) {
-    await this.findOne(id);
+  async addBackupInstructor(id: string, instructorId: string, academyId: string) {
+    await this.findOne(id, academyId);
 
-    const instructor = await this.prisma.instructor.findUnique({
-      where: { id: instructorId },
+    const instructor = await this.prisma.instructor.findFirst({
+      where: { id: instructorId, academyId },
     });
     if (!instructor) throw new NotFoundException('Instructor not found.');
 
@@ -129,8 +130,8 @@ export class ProgramLocationsService {
     });
   }
 
-  async removeBackupInstructor(id: string, instructorId: string) {
-    await this.findOne(id);
+  async removeBackupInstructor(id: string, instructorId: string, academyId: string) {
+    await this.findOne(id, academyId);
 
     return this.prisma.programLocation.update({
       where: { id },

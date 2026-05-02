@@ -10,6 +10,9 @@ class AuthUserDto {
 
   @ApiProperty({ enum: Role, isArray: true })
   roles: Role[];
+
+  @ApiProperty({ nullable: true })
+  academyId: string | null;
 }
 
 export class AuthResponseDto {
