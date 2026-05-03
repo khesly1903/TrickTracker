@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
@@ -8,18 +9,37 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { FilterContactDto } from './dto/filter-contact.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { EnrollmentIdService } from '../common/services/enrollment-id.service';
 import { ContactTypes } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class ContactsService {
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly enrollmentIdService: EnrollmentIdService,
+  ) {}
 
   async create(createContactDto: CreateContactDto, academyId: string) {
-    const { email, password, roles, userId, ...contactData } = createContactDto;
+    const { email, password, roles, userId, enrollmentId: customEnrollmentSequence, ...contactData } = createContactDto;
 
     return this.prisma.$transaction(async (prisma) => {
       let finalUserId = userId;
+
+      const academy = await prisma.academy.findUnique({
+        where: { id: academyId },
+        select: { seqNumber: true },
+      });
+      if (!academy?.seqNumber) {
+        throw new InternalServerErrorException('Academy enrollment ID not initialized.');
+      }
+
+      const loginId = await this.enrollmentIdService.generate(
+        prisma,
+        academyId,
+        academy.seqNumber,
+        customEnrollmentSequence,
+      );
 
       if (email) {
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -29,7 +49,7 @@ export class ContactsService {
         const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
         const newUser = await prisma.user.create({
-          data: { email, passwordHash: hashedPassword, roles: roles || ['PARENT'] },
+          data: { email, loginId, passwordHash: hashedPassword, roles: roles || ['PARENT'] },
         });
         finalUserId = newUser.id;
       } else if (userId) {
@@ -38,6 +58,18 @@ export class ContactsService {
 
         const existingContact = await prisma.contact.findUnique({ where: { userId } });
         if (existingContact) throw new ConflictException('This user already has a contact profile.');
+
+        if (!existingUser.loginId) {
+          await prisma.user.update({ where: { id: userId }, data: { loginId } });
+        }
+      } else {
+        const finalPassword = password || 'TrickTrackerTemp123!';
+        const hashedPassword = await bcrypt.hash(finalPassword, 10);
+
+        const newUser = await prisma.user.create({
+          data: { loginId, passwordHash: hashedPassword, roles: roles || ['PARENT'] },
+        });
+        finalUserId = newUser.id;
       }
 
       const contact = (await prisma.contact.create({
@@ -46,12 +78,13 @@ export class ContactsService {
           type: contactData.type || [ContactTypes.PARENT],
           userId: finalUserId || null,
           academyId,
+          enrollmentId: loginId,
         },
         include: { user: true },
       })) as any;
 
       const { user, ...rest } = contact;
-      return { ...rest, email: user?.email || null };
+      return { ...rest, email: user?.email ?? null, loginId: user?.loginId ?? null };
     });
   }
 

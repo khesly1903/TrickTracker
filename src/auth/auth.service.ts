@@ -25,11 +25,15 @@ export class AuthService {
       data: { email, passwordHash, roles: ['ADMIN'] },
     });
 
-    return this.login({ id: user.id, email: user.email, roles: user.roles });
+    return this.login({ id: user.id, email: user.email ?? null, roles: user.roles });
   }
 
-  async validateUser(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  async validateUser(identifier: string, password: string) {
+    const isNumericId = /^\d+$/.test(identifier);
+    const user = isNumericId
+      ? await this.prisma.user.findUnique({ where: { loginId: identifier } })
+      : await this.prisma.user.findUnique({ where: { email: identifier } });
+
     if (!user || !user.isActive) return null;
 
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -39,7 +43,7 @@ export class AuthService {
     return safeUser;
   }
 
-  async login(user: { id: string; email: string; roles: any[] }) {
+  async login(user: { id: string; email: string | null; roles: any[] }) {
     const academy = await this.prisma.academy.findUnique({ where: { ownerId: user.id } });
     const academyId = academy?.id ?? null;
 
@@ -99,7 +103,7 @@ export class AuthService {
     return { ...safeUser, academyId: academy?.id ?? null };
   }
 
-  private async generateTokens(user: { id: string; email: string; roles: any[]; academyId: string | null }) {
+  private async generateTokens(user: { id: string; email: string | null; roles: any[]; academyId: string | null }) {
     const payload: JwtPayload = { sub: user.id, email: user.email, roles: user.roles, academyId: user.academyId };
 
     const [accessToken, refreshToken] = await Promise.all([

@@ -77,6 +77,7 @@ model Academy {
   phone       String?
   address     String?
   isActive    Boolean  @default(true)
+  seqNumber   Int?     @unique
 
   ownerId     String   @unique
   owner       User     @relation("AcademyOwner", fields: [ownerId], references: [id])
@@ -87,14 +88,25 @@ model Academy {
   classes     Class[]
   programs    Program[]
   locations   Location[]
+  enrollmentCounters AcademyEnrollmentCounter[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 }
 
+model AcademyEnrollmentCounter {
+  academyId String
+  year      Int
+  lastSeq   Int    @default(0)
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  @@id([academyId, year])
+}
+
 model User {
-  id           String @id @default(uuid())
-  email        String @unique
+  id           String  @id @default(uuid())
+  email        String? @unique
+  loginId      String? @unique
   passwordHash String
   roles        Role[]
 
@@ -129,6 +141,7 @@ model Student {
   secondaryPhoneNumber String?
   whatsappPhoneNumber  String?
   school               String?
+  enrollmentId         String?
   isActive             Boolean          @default(true)
   studentContacts      StudentContact[]
   studentPrograms      StudentProgram[]
@@ -136,6 +149,7 @@ model Student {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
+  @@unique([academyId, enrollmentId])
   @@index([academyId])
 }
 
@@ -154,12 +168,14 @@ model Contact {
   secondaryPhoneNumber String?
   whatsappPhoneNumber  String
   email                String?          @unique
+  enrollmentId         String?
   isActive             Boolean          @default(true)
   studentContacts      StudentContact[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
+  @@unique([academyId, enrollmentId])
   @@index([academyId])
 }
 
@@ -173,6 +189,7 @@ model Instructor {
 
   name                 String
   surname              String
+  enrollmentId         String?
   isActive             Boolean @default(true)
   phoneNumber          String
   secondaryPhoneNumber String?
@@ -186,6 +203,7 @@ model Instructor {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
+  @@unique([academyId, enrollmentId])
   @@index([academyId])
 }
 

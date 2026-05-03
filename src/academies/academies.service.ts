@@ -10,7 +10,11 @@ export class AcademiesService {
     const existing = await this.prisma.academy.findUnique({ where: { ownerId } });
     if (existing) throw new ConflictException('Academy already exists for this user.');
 
-    return this.prisma.academy.create({ data: { ...dto, ownerId } });
+    const [{ nextval }] = await this.prisma.$queryRaw<{ nextval: bigint }[]>`
+      SELECT nextval('academy_seq_number')
+    `;
+
+    return this.prisma.academy.create({ data: { ...dto, ownerId, seqNumber: Number(nextval) } });
   }
 
   async getMyAcademy(ownerId: string) {

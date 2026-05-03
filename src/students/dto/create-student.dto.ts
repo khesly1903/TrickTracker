@@ -6,6 +6,7 @@ import {
   IsString,
   IsArray,
   IsUUID,
+  Matches,
   ValidateNested,
 } from 'class-validator';
 import { StudentType, Role, ContactTypes } from '@prisma/client';
@@ -141,6 +142,16 @@ export class CreateStudentDto {
   @IsEnum(Role, { each: true })
   @IsOptional()
   roles?: Role[];
+
+  @ApiProperty({
+    description: 'Custom 1-4 digit sequence for enrollment ID (e.g. "42" → ID will be YY-AAA-0042). Auto-generated if omitted.',
+    example: '0042',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^\d{1,4}$/, { message: 'Enrollment ID must be 1-4 digits.' })
+  enrollmentId?: string;
 
   // --- STUDENT PROFILE FIELDS ---
   @ApiProperty({

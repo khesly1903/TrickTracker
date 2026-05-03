@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
@@ -8,17 +9,36 @@ import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
 import { FilterInstructorDto } from './dto/filter-instructor.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { EnrollmentIdService } from '../common/services/enrollment-id.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class InstructorsService {
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly enrollmentIdService: EnrollmentIdService,
+  ) {}
 
   async create(createInstructorDto: CreateInstructorDto, academyId: string) {
-    const { email, password, roles, userId, ...instructorData } = createInstructorDto;
+    const { email, password, roles, userId, enrollmentId: customEnrollmentSequence, ...instructorData } = createInstructorDto;
 
     return this.prisma.$transaction(async (prisma) => {
       let finalUserId = userId;
+
+      const academy = await prisma.academy.findUnique({
+        where: { id: academyId },
+        select: { seqNumber: true },
+      });
+      if (!academy?.seqNumber) {
+        throw new InternalServerErrorException('Academy enrollment ID not initialized.');
+      }
+
+      const loginId = await this.enrollmentIdService.generate(
+        prisma,
+        academyId,
+        academy.seqNumber,
+        customEnrollmentSequence,
+      );
 
       if (email) {
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -28,7 +48,7 @@ export class InstructorsService {
         const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
         const newUser = await prisma.user.create({
-          data: { email, passwordHash: hashedPassword, roles: roles || ['INSTRUCTOR'] },
+          data: { email, loginId, passwordHash: hashedPassword, roles: roles || ['INSTRUCTOR'] },
         });
         finalUserId = newUser.id;
       } else if (userId) {
@@ -37,15 +57,27 @@ export class InstructorsService {
 
         const existingInstructor = await prisma.instructor.findUnique({ where: { userId } });
         if (existingInstructor) throw new ConflictException('This user already has an instructor profile.');
+
+        if (!existingUser.loginId) {
+          await prisma.user.update({ where: { id: userId }, data: { loginId } });
+        }
+      } else {
+        const finalPassword = password || 'TrickTrackerTemp123!';
+        const hashedPassword = await bcrypt.hash(finalPassword, 10);
+
+        const newUser = await prisma.user.create({
+          data: { loginId, passwordHash: hashedPassword, roles: roles || ['INSTRUCTOR'] },
+        });
+        finalUserId = newUser.id;
       }
 
       const instructor = await prisma.instructor.create({
-        data: { ...instructorData, userId: finalUserId, academyId },
+        data: { ...instructorData, userId: finalUserId, academyId, enrollmentId: loginId },
         include: { user: true },
       });
 
       const { user: linkedUser, ...rest } = instructor;
-      return { ...rest, email: linkedUser?.email || null };
+      return { ...rest, email: linkedUser?.email ?? null, loginId: linkedUser?.loginId ?? null };
     });
   }
 

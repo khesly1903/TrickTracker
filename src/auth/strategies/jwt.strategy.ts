@@ -5,14 +5,14 @@ import { Role } from '@prisma/client';
 
 export interface JwtPayload {
   sub: string;
-  email: string;
+  email: string | null;
   roles: Role[];
   academyId: string | null;
 }
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email: string | null;
   roles: Role[];
   academyId: string | null;
 }
