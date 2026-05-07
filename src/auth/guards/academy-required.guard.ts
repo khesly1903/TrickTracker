@@ -19,7 +19,7 @@ export class AcademyRequiredGuard implements CanActivate {
     if (!user) return true; // JwtAuthGuard handles unauthenticated
 
     const path: string = request.route?.path ?? '';
-    if (path.startsWith('/academies')) return true;
+    if (path.startsWith('/academies') || path.startsWith('/portal')) return true;
 
     if (!user.academyId) {
       throw new ForbiddenException('Academy setup required.');

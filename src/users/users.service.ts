@@ -52,7 +52,7 @@ export class UsersService {
    */
   async create(createUserDto: CreateUserDto) {
     // 1. Check if a user with this email already exists (Security)
-    const existingUser = await this.prisma.user.findUnique({
+    const existingUser = await this.prisma.user.findFirst({
       where: { email: createUserDto.email },
     });
 
@@ -94,7 +94,7 @@ export class UsersService {
     // findOne already throws if user not found
 
     if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
-      const emailTaken = await this.prisma.user.findUnique({
+      const emailTaken = await this.prisma.user.findFirst({
         where: { email: updateUserDto.email },
       });
       if (emailTaken) {

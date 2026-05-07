@@ -42,8 +42,10 @@ export class ContactsService {
       );
 
       if (email) {
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) throw new ConflictException('A user with this email already exists.');
+        const existingContact = await prisma.contact.findFirst({
+          where: { academyId, isActive: true, user: { email } },
+        });
+        if (existingContact) throw new ConflictException('A contact with this email already exists in this academy.');
 
         const finalPassword = password || 'TrickTrackerTemp123!';
         const hashedPassword = await bcrypt.hash(finalPassword, 10);
@@ -84,7 +86,7 @@ export class ContactsService {
       })) as any;
 
       const { user, ...rest } = contact;
-      return { ...rest, email: user?.email ?? null, loginId: user?.loginId ?? null };
+      return { ...rest, email: user?.email ?? rest.email ?? null, loginId: user?.loginId ?? null };
     });
   }
 
@@ -117,7 +119,7 @@ export class ContactsService {
 
     return contacts.map((contact) => {
       const { user, ...rest } = contact;
-      return { ...rest, email: user?.email || null };
+      return { ...rest, email: user?.email || rest.email || null };
     });
   }
 
@@ -143,7 +145,7 @@ export class ContactsService {
     return {
       data: contacts.map((contact) => {
         const { user, ...rest } = contact;
-        return { ...rest, email: user?.email || null };
+        return { ...rest, email: user?.email || rest.email || null };
       }),
       meta: { total, page, lastPage, limit },
     };
@@ -155,7 +157,12 @@ export class ContactsService {
         OR: [{ id }, { userId: id }],
         academyId,
       },
-      include: { user: true, studentContacts: true },
+      include: {
+        user: true,
+        studentContacts: {
+          include: { student: { select: { id: true, name: true, surname: true, isActive: true } } },
+        },
+      },
     });
 
     if (!contact) throw new NotFoundException('Contact not found');

@@ -27,12 +27,25 @@ export class StudentsService {
     prisma: any,
     nc: InlineCreateContactDto,
     academyId: string,
+    seqNumber: number,
   ): Promise<string> {
     if (!nc.phoneNumber || !nc.whatsappPhoneNumber) {
       throw new ConflictException(
         `phoneNumber and whatsappPhoneNumber are required when creating a new contact (name: ${nc.name} ${nc.surname}).`,
       );
     }
+
+    const enrollmentId = await this.enrollmentIdService.generate(prisma, academyId, seqNumber);
+
+    const hashedPassword = await bcrypt.hash('TrickTrackerTemp123!', 10);
+    const newUser = await prisma.user.create({
+      data: {
+        email: nc.email || null,
+        loginId: enrollmentId,
+        passwordHash: hashedPassword,
+        roles: ['PARENT'],
+      },
+    });
 
     const contact = await prisma.contact.create({
       data: {
@@ -44,6 +57,8 @@ export class StudentsService {
         email: nc.email || null,
         type: nc.type || [ContactTypes.PARENT],
         academyId,
+        enrollmentId,
+        userId: newUser.id,
       },
     });
     return contact.id;
@@ -111,7 +126,7 @@ export class StudentsService {
         academyId,
       },
       include: {
-        studentContacts: true,
+        studentContacts: { include: { contact: { include: { user: { select: { email: true } } } } } },
         studentPrograms: true,
       },
     });
@@ -224,8 +239,10 @@ export class StudentsService {
       );
 
       if (email) {
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) throw new ConflictException('A user with this email already exists.');
+        const existingStudent = await prisma.student.findFirst({
+          where: { academyId, isActive: true, user: { email } },
+        });
+        if (existingStudent) throw new ConflictException('A student with this email already exists in this academy.');
 
         const finalPassword = password || 'TrickTrackerTemp123!';
         const hashedPassword = await bcrypt.hash(finalPassword, 10);
@@ -294,6 +311,7 @@ export class StudentsService {
           if (nc.email) {
             const existing = await prisma.contact.findFirst({
               where: {
+                academyId,
                 isActive: true,
                 OR: [{ email: nc.email }, { user: { email: nc.email } }],
               },
@@ -302,10 +320,10 @@ export class StudentsService {
             if (existing) {
               contactId = existing.id;
             } else {
-              contactId = await this.createInlineContact(prisma, nc, academyId);
+              contactId = await this.createInlineContact(prisma, nc, academyId, academy.seqNumber);
             }
           } else {
-            contactId = await this.createInlineContact(prisma, nc, academyId);
+            contactId = await this.createInlineContact(prisma, nc, academyId, academy.seqNumber);
           }
 
           await prisma.studentContact.upsert({

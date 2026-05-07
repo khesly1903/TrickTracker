@@ -24,14 +24,14 @@ export class ProgramSessionsService {
    * @returns A list of program sessions.
    */
   async findAll(
+    academyId: string,
     programLocationId?: string,
     dateFrom?: string,
     dateTo?: string,
   ) {
-    const where: {
-      programLocationId?: string;
-      date?: { gte?: Date; lte?: Date };
-    } = {};
+    const where: any = {
+      programLocation: { program: { academyId } },
+    };
 
     if (programLocationId) where.programLocationId = programLocationId;
     if (dateFrom || dateTo) {

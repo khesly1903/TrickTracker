@@ -41,8 +41,12 @@ export class InstructorsService {
       );
 
       if (email) {
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) throw new ConflictException('A user with this email already exists.');
+        const existingInstructorWithEmail = await prisma.instructor.findFirst({
+          where: { academyId, isActive: true, user: { email } },
+        });
+        if (existingInstructorWithEmail) {
+          throw new ConflictException('An instructor with this email already exists in this academy.');
+        }
 
         const finalPassword = password || 'TrickTrackerTemp123!';
         const hashedPassword = await bcrypt.hash(finalPassword, 10);

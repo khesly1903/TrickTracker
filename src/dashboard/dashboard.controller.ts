@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ForbiddenException } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -16,6 +16,7 @@ export class DashboardController {
   })
   @Get()
   async getDashboardData(@CurrentUser() user: AuthUser) {
-    return this.dashboardService.getDashboardData(user.academyId!);
+    if (!user.academyId) throw new ForbiddenException('No academy associated with this account.');
+    return this.dashboardService.getDashboardData(user.academyId);
   }
 }

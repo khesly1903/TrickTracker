@@ -43,14 +43,14 @@ export class StudentProgramsController {
   @ApiOperation({ summary: 'List enrollments (filter by studentId or programId)' })
   @ApiOkResponse({ description: 'Returns a list of enrollments.' })
   @ApiQuery({ name: 'studentId', required: false, type: String })
-  @ApiQuery({ name: 'programId', required: false, type: String })
+  @ApiQuery({ name: 'programLocationId', required: false, type: String })
   @Get()
   async findAll(
     @CurrentUser() user: AuthUser,
     @Query('studentId') studentId?: string,
-    @Query('programId') programId?: string,
+    @Query('programLocationId') programLocationId?: string,
   ) {
-    return this.studentProgramsService.findAll(user.academyId!, studentId, programId);
+    return this.studentProgramsService.findAll(user.academyId!, studentId, programLocationId);
   }
 
   @ApiOperation({ summary: 'Get enrollment details with skills' })

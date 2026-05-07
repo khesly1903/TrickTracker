@@ -24,6 +24,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ProgramLocationsModule } from './program-locations/program-locations.module';
 import { ProgramSchedulesModule } from './program-schedules/program-schedules.module';
 import { ProgramStagesModule } from './program-stages/program-stages.module';
+import { PortalModule } from './portal/portal.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ProgramStagesModule } from './program-stages/program-stages.module';
     ProgramLocationsModule,
     ProgramSchedulesModule,
     ProgramStagesModule,
+    PortalModule,
   ],
   controllers: [AppController],
   providers: [

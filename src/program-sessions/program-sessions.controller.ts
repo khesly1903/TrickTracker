@@ -9,7 +9,10 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/strategies/jwt.strategy';
 import { ProgramSessionsService } from './program-sessions.service';
 import { CreateProgramSessionDto } from './dto/create-program-session.dto';
 import { UpdateProgramSessionDto } from './dto/update-program-session.dto';
@@ -47,11 +50,13 @@ export class ProgramSessionsController {
   @ApiQuery({ name: 'dateTo', required: false, description: 'ISO date string (inclusive)' })
   @Get()
   async findAll(
+    @CurrentUser() user: AuthUser,
     @Query('programLocationId') programLocationId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
   ) {
-    return this.programSessionsService.findAll(programLocationId, dateFrom, dateTo);
+    if (!user.academyId) throw new ForbiddenException('No academy associated with this account.');
+    return this.programSessionsService.findAll(user.academyId, programLocationId, dateFrom, dateTo);
   }
 
   @ApiOperation({ summary: 'Delete multiple manually generated sessions' })

@@ -105,7 +105,7 @@ model AcademyEnrollmentCounter {
 
 model User {
   id           String  @id @default(uuid())
-  email        String? @unique
+  email        String?
   loginId      String? @unique
   passwordHash String
   roles        Role[]
@@ -167,7 +167,7 @@ model Contact {
   phoneNumber          String
   secondaryPhoneNumber String?
   whatsappPhoneNumber  String
-  email                String?          @unique
+  email                String?
   enrollmentId         String?
   isActive             Boolean          @default(true)
   studentContacts      StudentContact[]

@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
 import * as bcrypt from 'bcrypt';
+import { Role } from '@prisma/client';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class AuthService {
   ) {}
 
   async register(email: string, password: string) {
-    const existing = await this.prisma.user.findUnique({ where: { email } });
+    const existing = await this.prisma.user.findFirst({ where: { email } });
     if (existing) throw new ConflictException('Email already in use.');
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -32,7 +33,7 @@ export class AuthService {
     const isNumericId = /^\d+$/.test(identifier);
     const user = isNumericId
       ? await this.prisma.user.findUnique({ where: { loginId: identifier } })
-      : await this.prisma.user.findUnique({ where: { email: identifier } });
+      : await this.prisma.user.findFirst({ where: { email: identifier } });
 
     if (!user || !user.isActive) return null;
 
@@ -44,8 +45,7 @@ export class AuthService {
   }
 
   async login(user: { id: string; email: string | null; roles: any[] }) {
-    const academy = await this.prisma.academy.findUnique({ where: { ownerId: user.id } });
-    const academyId = academy?.id ?? null;
+    const academyId = await this.resolveAcademyId(user.id, user.roles);
 
     const tokens = await this.generateTokens({ ...user, academyId });
 
@@ -81,8 +81,7 @@ export class AuthService {
     const tokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
     if (!tokenMatches) throw new ForbiddenException('Access denied.');
 
-    const academy = await this.prisma.academy.findUnique({ where: { ownerId: user.id } });
-    const academyId = academy?.id ?? null;
+    const academyId = await this.resolveAcademyId(user.id, user.roles);
 
     const tokens = await this.generateTokens({ id: user.id, email: user.email, roles: user.roles, academyId });
 
@@ -98,9 +97,29 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
-    const academy = await this.prisma.academy.findUnique({ where: { ownerId: userId } });
+    const academyId = await this.resolveAcademyId(userId, user.roles);
     const { passwordHash, refreshToken, ...safeUser } = user;
-    return { ...safeUser, academyId: academy?.id ?? null };
+    return { ...safeUser, academyId };
+  }
+
+  private async resolveAcademyId(userId: string, roles: Role[]): Promise<string | null> {
+    if (roles.includes(Role.ADMIN) || roles.includes(Role.OWNER) || roles.includes(Role.MANAGER)) {
+      const academy = await this.prisma.academy.findUnique({ where: { ownerId: userId } });
+      return academy?.id ?? null;
+    }
+    if (roles.includes(Role.STUDENT)) {
+      const student = await this.prisma.student.findUnique({ where: { userId } });
+      return student?.academyId ?? null;
+    }
+    if (roles.includes(Role.PARENT)) {
+      const contact = await this.prisma.contact.findUnique({ where: { userId } });
+      return contact?.academyId ?? null;
+    }
+    if (roles.includes(Role.INSTRUCTOR)) {
+      const instructor = await this.prisma.instructor.findUnique({ where: { userId } });
+      return instructor?.academyId ?? null;
+    }
+    return null;
   }
 
   private async generateTokens(user: { id: string; email: string | null; roles: any[]; academyId: string | null }) {
