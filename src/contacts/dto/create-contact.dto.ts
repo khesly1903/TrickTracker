@@ -6,7 +6,7 @@ import {
   IsArray,
   Matches,
 } from 'class-validator';
-import { ContactTypes, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateContactDto {
@@ -76,20 +76,6 @@ export class CreateContactDto {
   @IsString()
   @IsNotEmpty({ message: 'Surname field cannot be empty.' })
   surname: string;
-
-  @ApiProperty({
-    description: 'The relationship types of the contact',
-    enum: ContactTypes,
-    isArray: true,
-    example: [ContactTypes.PARENT],
-  })
-  @IsArray()
-  @IsEnum(ContactTypes, {
-    each: true,
-    message: 'Invalid Contact Type selected. Must be PARENT, GUARDIAN etc.',
-  })
-  @IsOptional()
-  type: ContactTypes[] = [ContactTypes.PARENT];
 
   @ApiProperty({
     description: 'Primary phone number',

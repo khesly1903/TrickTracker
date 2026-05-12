@@ -55,6 +55,8 @@ export class ProgramLocationsService {
         location: true,
         instructor: true,
         backupInstructors: true,
+        program: { include: { inheritedClass: true } },
+        schedules: { orderBy: { createdAt: 'asc' } },
         _count: {
           select: {
             sessions: true,

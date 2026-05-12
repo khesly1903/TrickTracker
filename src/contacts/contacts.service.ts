@@ -77,7 +77,7 @@ export class ContactsService {
       const contact = (await prisma.contact.create({
         data: {
           ...contactData,
-          type: contactData.type || [ContactTypes.PARENT],
+          type: [ContactTypes.PARENT],
           userId: finalUserId || null,
           academyId,
           enrollmentId: loginId,
@@ -114,7 +114,7 @@ export class ContactsService {
 
     const contacts = await this.prisma.contact.findMany({
       where,
-      include: { user: true },
+      include: { user: true, studentContacts: true },
     });
 
     return contacts.map((contact) => {
@@ -172,17 +172,11 @@ export class ContactsService {
   async update(id: string, updateContactDto: UpdateContactDto, academyId: string) {
     const existingContact = await this.findOne(id, academyId);
 
-    let finalTypes: ContactTypes[] = existingContact.type as ContactTypes[];
-    if (updateContactDto.type) {
-      finalTypes = Array.from(new Set([...finalTypes, ...updateContactDto.type])) as ContactTypes[];
-    }
-
     return this.prisma.contact.update({
       where: { id: existingContact.id },
       data: {
         name: updateContactDto.name,
         surname: updateContactDto.surname,
-        type: finalTypes,
         phoneNumber: updateContactDto.phoneNumber,
         secondaryPhoneNumber: updateContactDto.secondaryPhoneNumber,
         whatsappPhoneNumber: updateContactDto.whatsappPhoneNumber,

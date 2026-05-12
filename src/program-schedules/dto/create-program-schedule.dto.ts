@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DayOfWeek, ScheduleType } from '@prisma/client';
@@ -19,24 +20,44 @@ export class CreateProgramScheduleDto {
   programLocationId: string;
 
   @ApiProperty({
-    description: 'Day of the week',
+    description: 'Schedule type',
+    enum: ScheduleType,
+    example: ScheduleType.CLASS,
+  })
+  @IsEnum(ScheduleType)
+  @IsNotEmpty()
+  type: ScheduleType;
+
+  @ApiPropertyOptional({
+    description: 'Day of the week — required when type is CLASS',
     enum: DayOfWeek,
     example: DayOfWeek.SATURDAY,
   })
+  @ValidateIf((o) => o.type === ScheduleType.CLASS)
   @IsEnum(DayOfWeek)
   @IsNotEmpty()
-  dayOfWeek: DayOfWeek;
-
-  @ApiProperty({
-    description: 'Start time (ISO string, only time portion used)',
-    example: '1970-01-01T10:00:00.000Z',
-  })
-  @IsDateString()
-  @IsNotEmpty()
-  startTime: string | Date;
+  dayOfWeek?: DayOfWeek;
 
   @ApiPropertyOptional({
-    description: 'End time (ISO string). If omitted, duration is used.',
+    description: 'Specific date — required when type is MAKEUP, CANCELLED, or EVENT',
+    example: '2025-06-15T00:00:00.000Z',
+  })
+  @ValidateIf((o) => o.type !== ScheduleType.CLASS)
+  @IsDateString()
+  @IsNotEmpty()
+  date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Start time (ISO string, only time portion used) — required for CLASS',
+    example: '1970-01-01T10:00:00.000Z',
+  })
+  @ValidateIf((o) => o.type === ScheduleType.CLASS)
+  @IsDateString()
+  @IsNotEmpty()
+  startTime?: string | Date;
+
+  @ApiPropertyOptional({
+    description: 'End time (ISO string). Used for CLASS type.',
     example: '1970-01-01T11:00:00.000Z',
   })
   @IsDateString()
@@ -47,13 +68,4 @@ export class CreateProgramScheduleDto {
   @IsInt()
   @IsNotEmpty()
   duration: number;
-
-  @ApiProperty({
-    description: 'Schedule type',
-    enum: ScheduleType,
-    example: ScheduleType.CLASS,
-  })
-  @IsEnum(ScheduleType)
-  @IsNotEmpty()
-  type: ScheduleType;
 }

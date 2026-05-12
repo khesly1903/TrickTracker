@@ -55,7 +55,7 @@ export class StudentsService {
         whatsappPhoneNumber: nc.whatsappPhoneNumber,
         secondaryPhoneNumber: nc.secondaryPhoneNumber,
         email: nc.email || null,
-        type: nc.type || [ContactTypes.PARENT],
+        type: nc.relation ? [nc.relation] : [ContactTypes.PARENT],
         academyId,
         enrollmentId,
         userId: newUser.id,
@@ -127,7 +127,16 @@ export class StudentsService {
       },
       include: {
         studentContacts: { include: { contact: { include: { user: { select: { email: true } } } } } },
-        studentPrograms: true,
+        studentPrograms: {
+          include: {
+            programLocation: {
+              include: {
+                program: { select: { id: true, name: true } },
+                location: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
       },
     });
 

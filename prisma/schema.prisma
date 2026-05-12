@@ -273,10 +273,11 @@ model ProgramLocation {
 }
 
 model ProgramSchedule {
-  id        String       @id @default(uuid())
-  dayOfWeek DayOfWeek
-  startTime DateTime     @db.Timestamptz
-  endTime   DateTime?    @db.Timestamptz
+  id        String        @id @default(uuid())
+  dayOfWeek DayOfWeek?
+  date      DateTime?     @db.Timestamptz
+  startTime DateTime?     @db.Timestamptz
+  endTime   DateTime?     @db.Timestamptz
   duration  Int //minutes
   type      ScheduleType
 

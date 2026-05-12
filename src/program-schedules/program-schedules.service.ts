@@ -28,22 +28,43 @@ export class ProgramSchedulesService {
         data: { ...scheduleData, programLocationId },
       });
 
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const programEnd = new Date(programLocation.program.endDate);
-      const start = today > new Date(programLocation.program.startDate)
-        ? today
-        : new Date(programLocation.program.startDate);
+      if (dto.type === 'CLASS') {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        const programEnd = new Date(programLocation.program.endDate);
+        const start = today > new Date(programLocation.program.startDate)
+          ? today
+          : new Date(programLocation.program.startDate);
 
-      const payloads = generateSessionsForSchedule(
-        programLocationId,
-        { ...scheduleData, id: schedule.id },
-        start,
-        programEnd,
-      );
+        const payloads = generateSessionsForSchedule(
+          programLocationId,
+          {
+            id: schedule.id,
+            dayOfWeek: scheduleData.dayOfWeek!,
+            startTime: scheduleData.startTime!,
+            endTime: scheduleData.endTime,
+            duration: scheduleData.duration,
+            type: scheduleData.type,
+          },
+          start,
+          programEnd,
+        );
 
-      if (payloads.length > 0) {
-        await prisma.programSession.createMany({ data: payloads });
+        if (payloads.length > 0) {
+          await prisma.programSession.createMany({ data: payloads });
+        }
+      } else {
+        const sessionDate = new Date(dto.date!);
+        await prisma.programSession.create({
+          data: {
+            programLocationId,
+            scheduleId: schedule.id,
+            date: sessionDate,
+            startTime: sessionDate,
+            endTime: sessionDate,
+            type: dto.type,
+          },
+        });
       }
 
       return schedule;
@@ -90,22 +111,25 @@ export class ProgramSchedulesService {
           : new Date(existing.programLocation.program.startDate);
 
       const merged = { ...existing, ...updated };
-      const payloads = generateSessionsForSchedule(
-        existing.programLocationId,
-        {
-          id: updated.id,
-          dayOfWeek: merged.dayOfWeek,
-          startTime: merged.startTime,
-          endTime: merged.endTime ?? undefined,
-          duration: merged.duration,
-          type: merged.type,
-        },
-        start,
-        programEnd,
-      );
 
-      if (payloads.length > 0) {
-        await prisma.programSession.createMany({ data: payloads });
+      if (merged.type === 'CLASS' && merged.dayOfWeek && merged.startTime) {
+        const payloads = generateSessionsForSchedule(
+          existing.programLocationId,
+          {
+            id: updated.id,
+            dayOfWeek: merged.dayOfWeek,
+            startTime: merged.startTime,
+            endTime: merged.endTime ?? undefined,
+            duration: merged.duration,
+            type: merged.type,
+          },
+          start,
+          programEnd,
+        );
+
+        if (payloads.length > 0) {
+          await prisma.programSession.createMany({ data: payloads });
+        }
       }
 
       return updated;

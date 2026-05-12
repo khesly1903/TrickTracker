@@ -81,17 +81,6 @@ export class InlineCreateContactDto {
   email?: string;
 
   @ApiProperty({
-    enum: ContactTypes,
-    isArray: true,
-    example: [ContactTypes.PARENT],
-    required: false,
-  })
-  @IsArray()
-  @IsEnum(ContactTypes, { each: true })
-  @IsOptional()
-  type?: ContactTypes[];
-
-  @ApiProperty({
     description: 'Relation of this contact to the student.',
     enum: ContactTypes,
     example: ContactTypes.PARENT,
