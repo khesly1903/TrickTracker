@@ -57,6 +57,8 @@ export class ProgramLocationsService {
         backupInstructors: true,
         program: { include: { inheritedClass: true } },
         schedules: { orderBy: { createdAt: 'asc' } },
+        priceOptions: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+        discountOverrides: { include: { discount: true } },
         _count: {
           select: {
             sessions: true,
@@ -75,6 +77,8 @@ export class ProgramLocationsService {
         instructor: true,
         backupInstructors: true,
         schedules: true,
+        priceOptions: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+        discountOverrides: { include: { discount: true } },
         _count: {
           select: {
             sessions: true,

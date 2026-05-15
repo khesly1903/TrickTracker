@@ -69,6 +69,29 @@ enum ScheduleType {
   MAKEUP
 }
 
+enum PriceKind {
+  MONTHLY
+  WALK_IN
+  FULL_PROGRAM
+  CUSTOM
+}
+
+enum MonthlyBillingMode {
+  MONTH_BASED
+  DATE_BASED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+enum PaymentType {
+  PAYMENT
+  REFUND
+  ADJUSTMENT
+}
+
 model Academy {
   id          String   @id @default(uuid())
   name        String
@@ -89,6 +112,7 @@ model Academy {
   programs    Program[]
   locations   Location[]
   enrollmentCounters AcademyEnrollmentCounter[]
+  discounts   Discount[]
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz()
@@ -260,14 +284,16 @@ model ProgramLocation {
 
   price             Float
   capacity          Int
-  
+
   instructor        Instructor?       @relation("MainInstructor", fields: [instructorId], references: [id])
   instructorId      String?
   backupInstructors Instructor[]      @relation("BackupInstructors")
-  
+
   studentPrograms   StudentProgram[]
-  schedules ProgramSchedule[]
-  sessions  ProgramSession[]
+  schedules         ProgramSchedule[]
+  sessions          ProgramSession[]
+  priceOptions      PriceOption[]
+  discountOverrides DiscountOverride[]
 
   @@unique([programId, locationId])
 }
@@ -343,15 +369,30 @@ model Location {
 }
 
 model StudentProgram {
-  id        String  @id @default(uuid())
-  student   Student @relation(fields: [studentId], references: [id])
+  id                String          @id @default(uuid())
+  student           Student         @relation(fields: [studentId], references: [id])
   programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
-  isActive  Boolean @default(true)
-  studentId String
+  isActive          Boolean         @default(true)
+  studentId         String
   programLocationId String
+
+  priceOptionId              String?
+  priceOption                PriceOption? @relation(fields: [priceOptionId], references: [id], onDelete: SetNull)
+  basePriceSnapshot          Float?
+  priceKindSnapshot          PriceKind?
+  sessionsCoveredSnapshot    Int?
+  monthlyBillingModeSnapshot MonthlyBillingMode?
+
+  discountId       String?
+  discount         Discount? @relation(fields: [discountId], references: [id], onDelete: SetNull)
+  discountSnapshot Json?
+
+  finalPrice Float?
+  enrolledAt DateTime @default(now()) @db.Timestamptz
 
   attendances          Attendance[]
   studentProgramSkills StudentProgramSkill[]
+  payments             Payment[]
 
   @@unique([studentId, programLocationId])
 }
@@ -415,4 +456,80 @@ model StudentProgramSkill {
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
   @@unique([studentProgramId, programSkillId])
+}
+
+model PriceOption {
+  id                String          @id @default(uuid())
+  programLocationId String
+  programLocation   ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
+
+  name            String
+  amount          Float
+  kind            PriceKind @default(CUSTOM)
+  sessionsCovered Int?
+  billingMode     MonthlyBillingMode?
+  description     String?
+  isActive        Boolean   @default(true)
+  isDefault       Boolean   @default(false)
+
+  studentPrograms StudentProgram[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([programLocationId])
+}
+
+model Discount {
+  id        String  @id @default(uuid())
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  name        String
+  value       Float
+  type        DiscountType
+  description String?
+  isActive    Boolean      @default(true)
+
+  overrides       DiscountOverride[]
+  studentPrograms StudentProgram[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@unique([academyId, name])
+  @@index([academyId])
+}
+
+model DiscountOverride {
+  id                String @id @default(uuid())
+  discountId        String
+  programLocationId String
+
+  isEnabled    Boolean      @default(true)
+  valueOverride Float?
+  typeOverride  DiscountType?
+
+  discount        Discount        @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  programLocation ProgramLocation @relation(fields: [programLocationId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, programLocationId])
+}
+
+model Payment {
+  id               String         @id @default(uuid())
+  studentProgramId String
+  studentProgram   StudentProgram @relation(fields: [studentProgramId], references: [id], onDelete: Cascade)
+
+  amount      Float
+  paidAt      DateTime    @db.Timestamptz
+  method      String?
+  note        String?
+  type        PaymentType @default(PAYMENT)
+  createdById String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  @@index([studentProgramId])
 }

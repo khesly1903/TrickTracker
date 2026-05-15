@@ -61,6 +61,14 @@ export class StudentProgramsController {
     return this.studentProgramsService.findOne(id, user.academyId!);
   }
 
+  @ApiOperation({ summary: 'Get payment balance for an enrollment' })
+  @ApiOkResponse({ description: 'Returns finalPrice, totalPaid, balance.' })
+  @ApiNotFoundResponse()
+  @Get(':id/balance')
+  async getBalance(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.studentProgramsService.getBalance(id, user.academyId!);
+  }
+
   @ApiOperation({ summary: 'Soft-delete an enrollment (deactivate)' })
   @ApiOkResponse({ description: 'Enrollment deactivated.' })
   @ApiNotFoundResponse({ description: 'Enrollment not found.' })

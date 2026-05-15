@@ -1,20 +1,35 @@
-import { IsNotEmpty, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStudentProgramDto {
-  @ApiProperty({
-    description: 'The Student ID to enroll',
-    example: 'bd4d7c2a-1234-abcd-9876-b9a5c4d3e2f1',
-  })
+  @ApiProperty({ description: 'The Student ID to enroll' })
   @IsString()
   @IsNotEmpty()
   studentId: string;
 
-  @ApiProperty({
-    description: 'The Program Location ID to enroll the student in',
-    example: 'ca58ae9b-0b3c-4b1a-9c1a-1a2b3c4d5e6f',
-  })
+  @ApiProperty({ description: 'The Program Location ID to enroll the student in' })
   @IsString()
   @IsNotEmpty()
   programLocationId: string;
+
+  @ApiPropertyOptional({ description: 'Price option to apply at enrollment' })
+  @IsString()
+  @IsOptional()
+  priceOptionId?: string;
+
+  @ApiPropertyOptional({ description: 'Discount to apply (max 1)' })
+  @IsString()
+  @IsOptional()
+  discountId?: string;
+
+  @ApiPropertyOptional({ description: 'Enrollment start date for prorate calculation (default: now)' })
+  @IsDateString()
+  @IsOptional()
+  enrollmentStartDate?: string;
+
+  @ApiPropertyOptional({ description: 'Override base price (skips auto-prorate)' })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  overrideBasePrice?: number;
 }

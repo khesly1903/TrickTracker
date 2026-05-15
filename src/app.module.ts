@@ -25,6 +25,11 @@ import { ProgramLocationsModule } from './program-locations/program-locations.mo
 import { ProgramSchedulesModule } from './program-schedules/program-schedules.module';
 import { ProgramStagesModule } from './program-stages/program-stages.module';
 import { PortalModule } from './portal/portal.module';
+import { PriceOptionsModule } from './price-options/price-options.module';
+import { DiscountsModule } from './discounts/discounts.module';
+import { DiscountOverridesModule } from './discount-overrides/discount-overrides.module';
+import { PaymentsModule } from './payments/payments.module';
+import { AccountingModule } from './accounting/accounting.module';
 
 @Module({
   imports: [
@@ -48,6 +53,11 @@ import { PortalModule } from './portal/portal.module';
     ProgramSchedulesModule,
     ProgramStagesModule,
     PortalModule,
+    PriceOptionsModule,
+    DiscountsModule,
+    DiscountOverridesModule,
+    PaymentsModule,
+    AccountingModule,
   ],
   controllers: [AppController],
   providers: [
